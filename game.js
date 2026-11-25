@@ -642,7 +642,7 @@ function step(){const dt=Math.min(.05,clock.getDelta());el+=dt;if(!document.hidd
  if(SIT&&(Math.abs(fwd)>.1||Math.abs(side)>.1||P.ride))standUp();
  if(ONTRAIN){const s=ONTRAIN;P.x=TRAIN.position.x+s.x;P.z=TRAIN.position.z+s.z;P.y=s.y-.53;P.vy=0;P.yaw=s.ry;me.position.set(P.x,P.y,P.z);me.rotation.y=P.yaw;animH(me,0,dt,'sit')}
  else if(SIT){P.x=SIT.x;P.z=SIT.z;P.y=SIT.y;P.vy=0;P.yaw=SIT.ry;me.position.set(P.x,P.y,P.z);me.rotation.y=P.yaw;animH(me,0,dt,'sit');ST.energy=Math.min(100,ST.energy+dt*.3)}
- else if(!P.ride){const tired=ST.energy<8,hungry=ST.hunger<10,run=(K.shift||runT),sp=(run?(tired?7.5:12):3.4)*(hungry?.7:1);let mx=0,mz=0;const len=Math.hypot(fwd,side);
+ else if(!P.ride){const tired=ST.energy<8,hungry=ST.hunger<10,run=(K.shift||runT),sp=(run?(tired?7:10.5):3.4)*(hungry?.7:1);let mx=0,mz=0;const len=Math.hypot(fwd,side);
   if(len>.1){const fx=-Math.sin(camYaw),fz=-Math.cos(camYaw),rx=Math.cos(camYaw),rz=-Math.sin(camYaw);mx=(fx*fwd+rx*side)/Math.max(1,len);mz=(fz*fwd+rz*side)/Math.max(1,len);const ty=Math.atan2(mx,mz);let d=((ty-P.yaw+PI*3)%(PI*2))-PI;P.yaw+=d*Math.min(1,dt*12)}
   const nx=P.x+mx*sp*dt,nz=P.z+mz*sp*dt,stuck=blocked(P.x,P.z,.35);if(stuck||!blocked(nx,P.z,.35))P.x=nx;if(stuck||!blocked(P.x,nz,.35))P.z=nz;
   if(Math.abs(P.x+149.5)<2.5&&Math.abs(P.z-train.z)<62)P.x=-146;
