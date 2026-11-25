@@ -1,0 +1,9 @@
+{
+  "male": [
+    {"name": "Hoodie", "file": "male_hoodie.vrm"},
+    {"name": "T-shirt", "file": "male_tshirt.vrm"}
+  ],
+  "female": [
+    {"name": "Cap", "file": "female_cap.vrm"}
+  ]
+}

@@ -1,0 +1,6 @@
+*.bak
+*.bak?
+*.bak??
+*.tmp
+*.tmp.js
+start-game.bat

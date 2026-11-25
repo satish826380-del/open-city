@@ -1,0 +1,119 @@
+/* VOICE: cinematic open-city sim, Hinglish, confident and warm
+   IDEA: kaali-peeli taxi livery: black glass panels with taxi-yellow trim over a realistic 3D Mumbai
+   PICTURE: the full-screen city itself, lit by a real sky, sodium lamps and monsoon rain
+   COLOUR and TYPE: taxi black #141414 at 86%, taxi yellow #ffd21f, sea teal #19a7a0; Baloo 2
+   LAYOUT: HUD corners, needs bars under money, minimap top-right, phone slides in, touch pad on phones */
+:root{--k:#141414;--y:#ffd21f;--t:#19a7a0;--w:#fffaf0}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b1424;font:16px/1.4 "Baloo 2",system-ui,sans-serif;color:var(--w)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.pill{background:rgba(20,20,20,.82);border:2px solid var(--y);border-radius:14px;padding:4px 12px;backdrop-filter:blur(4px)}
+#hud{position:fixed;left:12px;top:12px;display:flex;flex-direction:column;gap:8px;width:min(330px,58vw);pointer-events:none}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+#money{font-weight:800;font-size:22px;color:var(--y)}
+#clock{font-weight:700;font-size:17px}
+.bars{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px;align-items:center;font-size:13px;font-weight:700}
+.bar{height:8px;border-radius:9px;background:#333;overflow:hidden}.bar i{display:block;height:100%;width:50%;border-radius:9px}
+#obj{font-weight:600;font-size:15px}#obj b{color:var(--y)}#obj:empty{display:none}
+#arrow{position:fixed;left:50%;top:14px;width:44px;height:44px;margin-left:-22px;pointer-events:none;display:none;filter:drop-shadow(0 2px 3px #000)}
+#dist{position:fixed;left:50%;top:58px;transform:translateX(-50%);font-weight:800;font-size:14px;text-shadow:0 1px 3px #000;pointer-events:none}
+#mini{position:fixed;right:12px;top:12px;width:150px;height:150px;border:3px solid var(--y);border-radius:50%;background:#222;pointer-events:none}
+#speedo{position:fixed;right:18px;bottom:20px;font-weight:800;font-size:30px;color:var(--y);text-shadow:0 2px 6px #000;pointer-events:none;text-align:right;line-height:1}
+#speedo small{display:block;font-size:13px;color:#fff}
+#hint{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);font-weight:700;pointer-events:none;white-space:nowrap}
+#hint:empty{display:none}
+#toast{position:fixed;left:50%;top:92px;transform:translateX(-50%);background:var(--y);color:var(--k);font-weight:800;font-size:19px;border-radius:999px;padding:4px 18px;border:3px solid var(--k);opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+#toast.on{opacity:1}
+button,select,input{font:inherit}
+button{font-weight:700;min-height:44px;padding:6px 14px;border-radius:12px;border:2px solid var(--k);background:var(--y);color:var(--k);cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--t);outline-offset:2px}
+button.ghost{background:#2a2a2a;color:var(--w);border-color:#555}
+button[aria-pressed=true]{background:var(--t);color:#fff}
+#phoneBtn{position:fixed;right:12px;top:174px}#mapBtn{position:fixed;right:12px;top:226px}
+#mapov{position:fixed;inset:0;background:rgba(10,12,16,.94);display:flex;flex-direction:column;z-index:5}#mapov[hidden]{display:none}
+.mbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;border-bottom:2px solid var(--y)}.mbar h2{margin:0;color:var(--y);font-size:24px;margin-right:auto}.mtip{font-size:14px;opacity:.8}
+#mapc{flex:1;width:100%;min-height:0;touch-action:none;cursor:crosshair;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;font-size:14px}.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid #141414}
+#chai{position:fixed;left:50%;bottom:66px;transform:translateX(-50%);display:none;gap:8px}
+#phone{position:fixed;right:12px;top:50%;transform:translate(130%,-50%);width:min(350px,calc(100vw - 24px));height:min(620px,calc(100vh - 24px));background:rgba(20,20,20,.95);border:3px solid var(--y);border-radius:28px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:transform .3s}
+#phone.on{transform:translate(0,-50%)}
+#phone h2{margin:0;font-size:22px;color:var(--y);line-height:1.1}
+.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.tabs button{padding:2px;font-size:13px;min-height:40px}
+#app{flex:1;overflow:auto;background:#222;border-radius:16px;padding:10px}
+.job{border:2px solid #444;border-radius:12px;padding:8px;margin-bottom:8px}
+.job h3{margin:0;color:var(--y);font-size:17px}
+.job p{margin:2px 0 6px;font-size:14px}
+.tx{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #333;padding:4px 0;font-size:14px}
+.tx span:last-child{white-space:nowrap}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.seg button{min-height:40px;padding:4px 10px}
+#bigmap{width:100%;aspect-ratio:1;border-radius:12px;background:#222;display:block}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800}
+#fade.on{opacity:1}
+#start{position:fixed;left:0;top:0;bottom:0;width:min(420px,100vw);background:linear-gradient(90deg,rgba(14,14,14,.94),rgba(14,14,14,.82));border-right:3px solid var(--y);padding:22px;overflow:auto}
+#start h1{margin:0;font-size:clamp(36px,6vw,50px);line-height:1.05;color:var(--y)}
+#start p{margin:6px 0 12px}
+#start label{display:block;font-weight:700;margin-top:10px;font-size:15px}
+#start input{width:100%;min-height:44px;border-radius:12px;border:2px solid #555;background:#222;color:#fff;padding:6px 12px;font-size:16px}
+.sw{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.sw button{width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;border:3px solid #444}
+.sw button[aria-pressed=true]{border-color:var(--y);box-shadow:0 0 0 2px var(--k) inset}
+#start ul{padding-left:18px;margin:10px 0;font-size:14px}
+kbd{background:#333;border-radius:6px;padding:0 6px;font:600 13px system-ui}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b1424;font-size:22px;font-weight:800;color:var(--y);text-align:center;padding:20px}
+#loading[hidden]{display:none}
+body.photo #ui,body.photo #touch,body.creating #ui,body.creating #touch{display:none}
+#photoTip{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none}
+body.photo #photoTip{display:block}
+#touch{display:none}
+@media (pointer:coarse){
+ #touch{display:block}
+ #joy{position:fixed;left:18px;bottom:18px;width:130px;height:130px;border-radius:50%;background:rgba(20,20,20,.45);border:2px solid var(--y);touch-action:none}
+ #knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:var(--y)}
+ #tbtn{position:fixed;right:14px;bottom:18px;display:grid;grid-template-columns:repeat(2,62px);gap:10px}
+ #tbtn button{height:62px;border-radius:50%;padding:0}
+ #hint{bottom:160px}#chai{bottom:170px}#speedo{bottom:170px}
+ #mini{width:110px;height:110px}#phoneBtn{top:130px}#mapBtn{top:182px}.mtip{display:none}
+}
+@media(max-width:600px){#start{width:100vw;background:rgba(14,14,14,.9)}}
+@media(prefers-reduced-motion:reduce){#phone,#toast,#fade{transition:none}}
+
+/* game-style HUD: avatar portrait, chunky bars, level badge */
+.hudtop{display:flex;align-items:center;gap:8px}
+#ava{width:62px;height:62px;border-radius:16px;overflow:hidden;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);flex:none}#ava svg{width:100%;height:100%;display:block}
+.hbars{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.hb{height:15px;border-radius:9px;background:rgba(15,15,18,.78);border:2px solid rgba(255,255,255,.85);overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.hb.sm{height:11px}.hb i{display:block;height:100%;width:50%;background:linear-gradient(#ff6b5a,#d62b1e);transition:width .4s}.hb.sm i{background:linear-gradient(#7dec6a,#2fa834)}
+#lv{font-weight:800;font-size:17px;color:#fff;text-shadow:0 2px 3px #000;align-self:flex-start;margin-top:4px}
+
+/* loading screen */
+#loading{background:radial-gradient(120% 90% at 50% 100%,#f3a14a 0%,#c0567a 38%,#2a2f6b 75%,#141833 100%);transition:opacity .6s;flex-direction:column}
+#loading.done{opacity:0}
+.ld{width:min(420px,90vw);display:flex;flex-direction:column;align-items:center;gap:12px}
+.ldlogo{font-size:clamp(36px,9vw,58px);font-weight:800;color:#fff;text-shadow:0 4px 14px rgba(0,0,0,.4);line-height:1}.ldlogo span{color:var(--y)}
+.ldsub{font-size:15px;font-weight:600;color:#ffe9d6}
+.ldbar{width:100%;height:14px;border-radius:9px;background:rgba(0,0,0,.35);border:2px solid rgba(255,255,255,.8);overflow:hidden}
+.ldbar i{display:block;height:100%;width:30%;border-radius:9px;background:linear-gradient(90deg,#ffd21f,#ff8a2a);transition:width .5s}
+#ldText{font-size:16px;font-weight:700;color:#fff}.ldtip{font-size:13px;font-weight:600;color:#ffe0c8;opacity:.9}.ldtip b{color:var(--y)}
+/* phone: smaller handset with bezel, notch, status bar and a bottom app bar */
+#phone{width:min(288px,calc(100vw - 24px));height:min(540px,calc(100vh - 40px));background:#0d0f14;border:6px solid #1b1e25;outline:2px solid #3b3f48;border-radius:36px;padding:8px 10px 12px;gap:8px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.pstat{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:#fff;padding:0 8px;min-height:20px}
+.notch{width:76px;height:18px;border-radius:0 0 12px 12px;background:#000;margin-top:-8px}.psig{letter-spacing:-1px;font-size:10px}
+#phone h2{font-size:18px;text-align:center}
+#app{order:2;background:#161a21;border-radius:18px;padding:8px;font-size:14px}
+#phone .tabs{order:3;background:#1b1e25;border-radius:18px;padding:5px;gap:3px}
+#phone .tabs button{display:flex;flex-direction:column;align-items:center;gap:1px;background:transparent;color:#cfd3da;border:0;font-size:11px;min-height:46px;border-radius:12px;padding:3px 0}
+#phone .tabs button b{font-size:18px;line-height:1.1}
+#phone .tabs button[aria-pressed="true"]{background:rgba(255,210,31,.16);color:var(--y)}
+#closePhone{order:4;min-height:34px;font-size:14px;padding:4px}
+
+/* multiplayer chat + online badge */
+#online{font-size:13px;font-weight:700;color:#bfe9c8}
+#chat{position:fixed;left:12px;bottom:84px;width:min(340px,70vw);display:flex;flex-direction:column;gap:6px;pointer-events:none;z-index:5}
+#chatLog{display:flex;flex-direction:column;gap:3px}
+#chatLog div{background:rgba(15,15,20,.68);border-radius:10px;padding:3px 10px;font-size:14px;font-weight:600;color:#fff;width:fit-content;max-width:100%;transition:opacity .8s}
+#chatLog div b{color:var(--y)}#chatLog div.me b{color:#7fd6ff}
+#chatIn{pointer-events:auto;font:600 15px "Baloo 2",sans-serif;padding:8px 12px;border-radius:12px;border:2px solid var(--y);background:rgba(15,15,20,.9);color:#fff}
+#chatBtn{position:fixed;left:12px;bottom:30px;width:46px;height:46px;border-radius:50%;font-size:22px;padding:0;background:rgba(20,20,20,.8);border:2px solid var(--y);z-index:5}
+body.creating #chat,body.creating #chatBtn{display:none}

@@ -1,0 +1,9 @@
+# backups and scratch files made while editing
+*.bak
+*.bak?
+*.bak??
+*.tmp
+*.tmp.js
+anim.tmp
+node_modules/
+.vercel
