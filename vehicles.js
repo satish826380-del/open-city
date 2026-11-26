@@ -10,7 +10,7 @@ export function initVehicles(c) { ctx = c }
 
 // ---------- materials ----------
 const PAINT = new Map();
-const paint = c => { if (!PAINT.has(c)) PAINT.set(c, new T.MeshPhysicalMaterial({color: c, metalness: .2, roughness: .38, clearcoat: .7, clearcoatRoughness: .12, envMapIntensity: .55})); return PAINT.get(c) };
+const paint = c => { if (!PAINT.has(c)) PAINT.set(c, window.__MN_LOW ? new T.MeshStandardMaterial({color: c, metalness: .1, roughness: .45}) : new T.MeshPhysicalMaterial({color: c, metalness: .1, roughness: .42, clearcoat: .4, clearcoatRoughness: .2, envMapIntensity: .45})); return PAINT.get(c) };
 const glass = new T.MeshStandardMaterial({color: 0x0a1016, metalness: .3, roughness: .08, envMapIntensity: .5});
 const chrome = new T.MeshStandardMaterial({color: 0xe4e8ec, metalness: 1, roughness: .12});
 const plastic = new T.MeshStandardMaterial({color: 0x141414, roughness: .7});
@@ -162,7 +162,7 @@ function busTex() {
   const gl = x.createLinearGradient(0, 40, 0, 130); gl.addColorStop(0, '#5a7488'); gl.addColorStop(.5, '#1b2a36'); gl.addColorStop(1, '#0f1820');
   x.fillStyle = gl; x.fillRect(20, 40, 984, 92); x.fillStyle = '#8c1c16'; for (let i = 0; i < 12; i++) x.fillRect(20 + i * 82, 40, 6, 92);
   x.fillStyle = 'rgba(255,255,255,.16)'; for (let i = 0; i < 12; i++) { x.beginPath(); x.moveTo(30 + i * 82, 128); x.lineTo(70 + i * 82, 44); x.lineTo(84 + i * 82, 44); x.lineTo(44 + i * 82, 128); x.fill() }
-  x.fillStyle = '#efe7d4'; x.fillRect(0, 142, 1024, 16); x.fillStyle = '#efe7d4'; x.font = '800 40px sans-serif'; x.fillText('NAVAPUR NAGAR PARIVAHAN', 160, 205);
+  x.fillStyle = '#efe7d4'; x.fillRect(0, 142, 1024, 16); x.fillStyle = '#efe7d4'; x.font = '800 40px sans-serif'; x.fillText('STARTUP CITY TRANSPORT', 160, 205);
   x.fillStyle = '#2a2a2a'; x.fillRect(860, 40, 110, 200); x.fillStyle = '#4a5560'; x.fillRect(868, 48, 44, 120); x.fillRect(918, 48, 44, 120);
   BUS_TEX = new T.CanvasTexture(c); BUS_TEX.colorSpace = T.SRGBColorSpace; return BUS_TEX;
 }

@@ -1,10 +1,9 @@
 {
-  "male": [
-    {"name": "Kyle", "file": "https://arweave.net/0E5wEEVl5VGCcuGVQylq3dpC3TClLR3JhuhEyhYh7NQ"},
-    {"name": "Chad", "file": "https://arweave.net/s15TxeRcxamOZ0qDfjME1Bl2Ku7Vs4IQs8RthpxYjOQ"},
-    {"name": "David", "file": "https://arweave.net/H3cBhsOEoiQ8XZiwG31SyCUtiDewBZRccxIDztyHfSY"}
-  ],
+  "male": [],
   "female": [
-    {"name": "Anime girl", "file": "https://cdn.jsdelivr.net/gh/pixiv/three-vrm@v3.5.5/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm"}
+    {
+      "name": "Anime girl",
+      "file": "anime_girl.vrm"
+    }
   ]
 }

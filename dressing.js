@@ -46,7 +46,7 @@ export function dressCity(C) {
     x.fillStyle = '#fff8e8'; x.font = '800 92px "Baloo 2",sans-serif'; x.textAlign = 'center'; x.fillText(txt, w / 2, h * .9);
     x.strokeStyle = 'rgba(255,255,255,.5)'; x.lineWidth = 6; x.strokeRect(8, 8, w - 16, h - 16);
   });
-  const MURALS = [new T.MeshStandardMaterial({map: muralCanvas('Navapur', 20), roughness: .8}), new T.MeshStandardMaterial({map: muralCanvas('नवापुर', 280), roughness: .8}), new T.MeshStandardMaterial({map: muralCanvas('Mumbai Nagri', 200), roughness: .8})];
+  const MURALS = [new T.MeshStandardMaterial({map: muralCanvas('Startup City', 20), roughness: .8}), new T.MeshStandardMaterial({map: muralCanvas('Startup City', 280), roughness: .8}), new T.MeshStandardMaterial({map: muralCanvas('Startup City', 200), roughness: .8})];
   const pots = [];
   LOTS.forEach((L, i) => {
     const f = L.front, zf = L.z + f * (L.d / 2);
@@ -55,7 +55,7 @@ export function dressCity(C) {
     if (i % 3 === 0 && L.H > 12) { const m = new T.Mesh(new T.PlaneGeometry(L.d * .8, Math.min(L.H - 6, L.d * .6)), MURALS[i % 3]); const s = i % 2 ? 1 : -1;
       m.position.set(L.x + s * (L.w / 2 + .05), 4.6 + Math.min(L.H - 6, L.d * .6) / 2 + 1, L.z); m.rotation.y = s * PI / 2; scene.add(m) }
   });
-  for (const [x, z] of pots) { put(new T.CylinderGeometry(.45, .32, .7, 10), potM, x, .6, z); put(new T.IcosahedronGeometry(.6, 1), R() < .5 ? plantM : plantM2, x, 1.35, z, 0, 0, 0, 1, rnd(.9, 1.4), 1) }
+  for (const [x, z] of pots) { addColl(x - .45, x + .45, z - .45, z + .45, 1.2); put(new T.CylinderGeometry(.45, .32, .7, 10), potM, x, .6, z); put(new T.IcosahedronGeometry(.6, 1), R() < .5 ? plantM : plantM2, x, 1.35, z, 0, 0, 0, 1, rnd(.9, 1.4), 1) }
 
   // ---------- yellow-black bollards along the footpath edges ----------
   {
@@ -63,7 +63,7 @@ export function dressCity(C) {
     for (const r of ROADS) for (let s = -LIM + 6; s < SEA - 4; s += 7) { if (skip(s)) continue; for (const e of [-1, 1]) { pts.push([r + e * 7.9, s]); if (s < LIM - 6) pts.push([s, r + e * 7.9]) } }
     const poleG = new T.CylinderGeometry(.13, .15, 1, 10), bandG = new T.CylinderGeometry(.155, .155, .18, 10), capG = new T.SphereGeometry(.13, 10, 6, 0, PI * 2, 0, PI / 2);
     const pI = new T.InstancedMesh(poleG, mat(0x222326, .5, .4), pts.length), bI = new T.InstancedMesh(bandG, mat(0xf2c21f, .5), pts.length), cI = new T.InstancedMesh(capG, mat(0x222326, .4, .5), pts.length), o = new T.Object3D();
-    pts.forEach(([x, z], i) => { o.position.set(x, .75, z); o.updateMatrix(); pI.setMatrixAt(i, o.matrix); o.position.y = 1.05; o.updateMatrix(); bI.setMatrixAt(i, o.matrix); o.position.y = 1.25; o.updateMatrix(); cI.setMatrixAt(i, o.matrix) });
+    pts.forEach(([x, z], i) => { addColl(x - .16, x + .16, z - .16, z + .16, 1.2); o.position.set(x, .75, z); o.updateMatrix(); pI.setMatrixAt(i, o.matrix); o.position.y = 1.05; o.updateMatrix(); bI.setMatrixAt(i, o.matrix); o.position.y = 1.25; o.updateMatrix(); cI.setMatrixAt(i, o.matrix) });
     pI.castShadow = true; scene.add(pI, bI, cI);
   }
 
@@ -84,7 +84,7 @@ export function dressCity(C) {
     put(new T.CylinderGeometry(.1, .1, 8, 6), mat(0x666666, .4, .6), gx, 31, gz);
     const flag = new T.Mesh(new T.PlaneGeometry(3.6, 2.4), new T.MeshStandardMaterial({map: ctex(96, 64, (x, w, h) => { x.fillStyle = '#ff9933'; x.fillRect(0, 0, w, h / 3); x.fillStyle = '#ffffff'; x.fillRect(0, h / 3, w, h / 3); x.fillStyle = '#138808'; x.fillRect(0, 2 * h / 3, w, h / 3); x.strokeStyle = '#000080'; x.lineWidth = 2; x.beginPath(); x.arc(w / 2, h / 2, 8, 0, 7); x.stroke() }), side: T.DoubleSide}));
     flag.position.set(gx + 1.8, 33.6, gz); scene.add(flag); TICK.push((dt, t) => { flag.rotation.y = Math.sin(t * 2.2) * .22 });
-    const s = sign('नवापुर द्वार · Navapur Darwaza', '#5b2a1a', '#ffe7b0', 1.2, .5); s.position.set(gx, 15.5, gz + 3.05); scene.add(s);
+    const s = sign('Startup City Gate', '#5b2a1a', '#ffe7b0', 1.2, .5); s.position.set(gx, 15.5, gz + 3.05); scene.add(s);
   }
 
   // ---------- Pune-style railway station front (red + cream, clock tower, cupolas) ----------
@@ -101,7 +101,7 @@ export function dressCity(C) {
     const clock = new T.Mesh(new T.CircleGeometry(1.6, 32), new T.MeshStandardMaterial({map: ctex(128, 128, (x, w, h) => { x.fillStyle = '#fdf8ea'; x.beginPath(); x.arc(64, 64, 62, 0, 7); x.fill(); x.strokeStyle = '#222'; x.lineWidth = 5; x.stroke(); x.lineWidth = 4; for (let k = 0; k < 12; k++) { const a = k / 12 * PI * 2; x.beginPath(); x.moveTo(64 + Math.cos(a) * 50, 64 + Math.sin(a) * 50); x.lineTo(64 + Math.cos(a) * 58, 64 + Math.sin(a) * 58); x.stroke() } x.lineWidth = 6; x.beginPath(); x.moveTo(64, 64); x.lineTo(64, 26); x.moveTo(64, 64); x.lineTo(92, 64); x.stroke() }), roughness: .5}));
     clock.position.set(fx + 1.52, 14.5, cz); clock.rotation.y = PI / 2; scene.add(clock);
     for (const s of [-1, 1]) { const z = cz + s * 12; cube(cream, fx - .6, 7, z, 3.4, 14, 3.4); put(new T.SphereGeometry(1.9, 12, 8, 0, PI * 2, 0, PI / 2), redM, fx - .6, 14, z) }
-    const st = sign('नगरी जंक्शन · NAGRI JUNCTION', '#1e4fa8', '#fff', 1.3, .6); st.position.set(fx + .12, 8.2, cz); st.rotation.y = PI / 2; scene.add(st);
+    const st = sign('CITY JUNCTION', '#1e4fa8', '#fff', 1.3, .6); st.position.set(fx + .12, 8.2, cz); st.rotation.y = PI / 2; scene.add(st);
     addColl(cx - 5, cx + 5, cz - 13.2, cz + 13.2, 12);
   }
 
@@ -126,7 +126,7 @@ export function dressCity(C) {
   {
     const cloudT = ctex(256, 128, (x, w, h) => { for (let i = 0; i < 26; i++) { const cx = 40 + R() * 176, cy = 50 + R() * 40, r = 18 + R() * 30; const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill() } });
     const cm = new T.SpriteMaterial({map: cloudT, transparent: true, depthWrite: false, fog: false, opacity: .92});
-    const clouds = []; for (let i = 0; i < 14; i++) { const s = new T.Sprite(cm); const a = R() * PI * 2, r = rnd(350, 1100); s.position.set(Math.cos(a) * r, rnd(220, 380), Math.sin(a) * r); s.scale.set(rnd(220, 420), rnd(90, 150), 1); scene.add(s); clouds.push(s) }
+    const clouds = []; for (let i = 0; i < (window.__MN_LOW ? 6 : 14); i++) { const s = new T.Sprite(cm); const a = R() * PI * 2, r = rnd(350, 1100); s.position.set(Math.cos(a) * r, rnd(220, 380), Math.sin(a) * r); s.scale.set(rnd(220, 420), rnd(90, 150), 1); scene.add(s); clouds.push(s) }
     TICK.push(dt => { for (const c of clouds) { c.position.x += dt * 2.5; if (c.position.x > 1300) c.position.x = -1300 } });
   }
 
@@ -135,4 +135,4 @@ export function dressCity(C) {
 }
 
 // Hindi / Marathi shop names for the old city's signboards
-export const HINDI_SHOPS = ['शर्मा चाय स्टॉल', 'पुस्तक भंडार', 'मोबाइल सेंटर', 'लक्ष्मी मेडिकल', 'पाव भाजी कॉर्नर', 'सायबर कैफे', 'गणेश स्वीट्स', 'किराना स्टोर', 'कोहिनूर होटल', 'पटेल किराना', 'जोशी क्लिनिक', 'ओम साई झेरॉक्स', 'न्यू फैशन', 'हरि ओम भाजी', 'रॉयल सलून', 'अमृत डेयरी'];
+export const HINDI_SHOPS = ['Sharma Tea Stall', 'Book Depot', 'Mobile Center', 'Laxmi Medical', 'Pav Bhaji Corner', 'Cyber Cafe', 'Ganesh Sweets', 'Grocery Store', 'Kohinoor Hotel', 'Patel Grocery', 'Joshi Clinic', 'Om Sai Xerox', 'New Fashion', 'Hari Om Vegetables', 'Royal Salon', 'Amrut Dairy'];

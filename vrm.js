@@ -9,7 +9,7 @@ import {FBXLoader} from 'three/addons/loaders/FBXLoader.js';
 // ---- Mixamo animations (models/anim/*.fbx), retargeted onto any VRM ----
 // Missing files are skipped; states without a clip fall back to the procedural rig.
 const ANIM_DIR = 'models/anim/';
-const ANIMS = ['idle', 'walk', 'run', 'sit', 'phone', 'wave'];
+const ANIMS = ['idle', 'walk', 'run', 'sit', 'phone', 'wave', 'jump'];
 const MIXAMO = {
   mixamorigHips: 'hips', mixamorigSpine: 'spine', mixamorigSpine1: 'chest', mixamorigSpine2: 'upperChest',
   mixamorigNeck: 'neck', mixamorigHead: 'head',
@@ -30,7 +30,7 @@ const MIXAMO = {
 };
 const fbx = new FBXLoader();
 const fbxCache = new Map();
-const loadFBX = url => { if (!fbxCache.has(url)) fbxCache.set(url, fbx.loadAsync(url).catch(() => null)); return fbxCache.get(url) };
+export const loadFBX = url => { if (!fbxCache.has(url)) fbxCache.set(url, fbx.loadAsync(url).catch(() => null)); return fbxCache.get(url) };
 
 // Convert a Mixamo clip to the VRM's normalized bones (same approach as three-vrm's Mixamo example).
 function retarget(asset, vrm, scale) {
@@ -77,6 +77,7 @@ async function loadAnims(vrm) {
     if (!clip) return;
     const a = mixer.clipAction(clip);
     if (name === 'sit' || name === 'phone' || name === 'wave') a.clampWhenFinished = name === 'sit';
+    if (name === 'jump') { a.setLoop(T.LoopOnce, 1); a.clampWhenFinished = true }
     actions[name] = a;
   }));
   return Object.keys(actions).length ? {mixer, actions, cur: null} : null;
@@ -86,6 +87,7 @@ async function loadAnims(vrm) {
 function pickState(A, u) {
   const spd = u.spd || 0;
   if (u.ss > .5) return A.actions.sit ? 'sit' : null;
+  if (u.air && A.actions.jump) return 'jump';
   if (u.wave > 0 && spd < .2 && A.actions.wave) return 'wave';
   if (u.pc && spd < .2 && A.actions.phone) return 'phone';
   if (spd > 4.5) return A.actions.run ? 'run' : (A.actions.walk ? 'walk' : null);
@@ -105,9 +107,14 @@ const HAIR = {drag: .55, stiff: 1.8, grav: .6}; // calmer spring bones: less fly
 const qz = d => new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 0, 1), d);
 const _e = new T.Euler(), _q = new T.Quaternion(), _v1 = new T.Vector3(), _v2 = new T.Vector3(), _v3 = new T.Vector3();
 
+// loading progress per file, for the loading overlay: {p: 0..1, stage: 'model' | 'anims' | 'done'}
+const PROG = new Map();
+export const vrmProgress = url => PROG.get(url) || null;
 export function loadVRM(url) {
   if (cache.has(url)) return cache.get(url);
-  const pr = loader.loadAsync(url).then(async g => {
+  PROG.set(url, {p: 0, stage: 'model'});
+  const pr = loader.loadAsync(url, e => { if (e.lengthComputable && e.total) PROG.set(url, {p: e.loaded / e.total * .85, stage: 'model'}) }).then(async g => {
+    PROG.set(url, {p: .88, stage: 'anims'});
     const vrm = g.userData.vrm;
     if (!vrm) throw new Error('Is file mein VRM nahi hai: ' + url);
     VRMUtils.removeUnnecessaryVertices(g.scene);
@@ -117,6 +124,7 @@ export function loadVRM(url) {
     vrm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false } });
     prep(vrm);
     vrm.scene.userData.mn.anim = await loadAnims(vrm);
+    PROG.set(url, {p: 1, stage: 'done'});
     return vrm;
   });
   cache.set(url, pr);
@@ -253,9 +261,18 @@ export function driveVRM(vrm, u, dt) {
   const A = M.anim, st = A ? pickState(A, u) : null;
   if (st) {
     const next = A.actions[st], spd = u.spd || 0;
-    if (A.cur !== next) { next.reset().setEffectiveWeight(1).fadeIn(.3).play(); if (A.cur) A.cur.fadeOut(.3); A.cur = next }
-    next.timeScale = st === 'walk' ? Math.min(1.5, Math.max(.85, spd / 2.4)) : st === 'run' ? Math.min(2.1, Math.max(.85, spd / 5.7)) : 1;
+    if (A.cur !== next) { next.reset().setEffectiveWeight(1).fadeIn(.2).play(); if (A.cur) A.cur.fadeOut(.2); A.cur = next }
+    next.timeScale = st === 'walk' ? Math.min(1.5, Math.max(.85, spd / 2.4)) : st === 'run' ? Math.min(1.35, Math.max(.85, spd / 6.8)) : 1;
     A.mixer.update(dt);
+    // calmer hips while walking/running: less sideways shift, twist and roll
+    if ((st === 'walk' || st === 'run') && M.B.hips) { const h = M.B.hips; _e.setFromQuaternion(h.quaternion, 'YXZ'); _e.y *= .4; _e.z *= .35; h.quaternion.setFromEuler(_e); h.position.x = M.rest.x + (h.position.x - M.rest.x) * .3 }
+    // wave while walking/running: raise the right arm on top of the clip
+    M.wv = (M.wv || 0) + ((u.wave > 0 && st !== 'wave' ? 1 : 0) - (M.wv || 0)) * Math.min(1, dt * 8);
+    if (M.wv > .01 && M.B.rightUpperArm && M.B.rightLowerArm) {
+      const t = performance.now() / 120;
+      M.B.rightUpperArm.quaternion.slerp(_q.setFromEuler(_e.set(0, 0, -1.25 * F)), M.wv);
+      M.B.rightLowerArm.quaternion.slerp(_q.setFromEuler(_e.set(0, 0, (-.45 + Math.sin(t) * .35) * F)), M.wv);
+    }
     if (M.phone) M.phone.visible = false;
     if (M.phone2) M.phone2.visible = false;
     face(vrm, u);
@@ -301,6 +318,6 @@ export function driveVRM(vrm, u, dt) {
 
 function face(vrm, u) { // blink + eye movement from the rig's timers
   const em = vrm.expressionManager;
-  if (em) em.setValue('blink', u.lidG && u.lidG.visible ? Math.min(1, u.lidG.scale.y) : 0);
+  if (em) { em.setValue('blink', u.lidG && u.lidG.visible ? Math.min(1, u.lidG.scale.y) : 0); u.hap = (u.hap || 0) + ((u.wave > 0 ? 1 : 0) - (u.hap || 0)) * .12; em.setValue('happy', u.hap) } // smile while waving
   if (vrm.lookAt) { vrm.lookAt.yaw = u.gx * 12 * F; vrm.lookAt.pitch = u.gy * 10 }
 }

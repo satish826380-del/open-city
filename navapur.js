@@ -6,8 +6,11 @@ import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {makeTrees} from './trees.js?v=1';
 
+// the Startup Café: walk-in meeting place between the old city and the ring road (entrance faces east)
+export const CAFE = {x: -213, z: -80, w: 34, d: 26, door: {x: -191, z: -80}, seats: []};
 export const WORLD = {x0: -505, x1: 505, z0: -470, coast: 165};
 const PI = Math.PI;
+const LOW = matchMedia('(pointer:coarse)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);   // phones: lighter world
 
 // fixed (non-random) ring road so traffic and the road mesh agree on every load
 const RING_CTRL = [[170, 120], [215, 116], [252, 92], [262, 30], [246, -40], [262, -110], [250, -175], [210, -238], [120, -258], [40, -246],
@@ -66,7 +69,9 @@ export function buildNavapur(C) {
     const s = new T.Shape(pts.map(([x, z]) => new T.Vector2(x, -z))); const g = new T.ShapeGeometry(s, 4); g.rotateX(-PI / 2); g.translate(0, y, 0);
     const p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / tile, p.getZ(i) / tile); return g;
   }
-  const area = (pts, m, tile, y, col) => { const o = new T.Mesh(shapeGeo(pts, tile, y), m); o.receiveShadow = true; scene.add(o); if (col) DMAP.zones.push({pts, c: col}); return o };
+  // district ground is pushed back in depth so roads and paths on top of it never flicker, even far away
+  const areaMats = new Map(), areaMat = m => { let c = areaMats.get(m); if (!c) { c = m.clone(); c.polygonOffset = true; c.polygonOffsetFactor = 2; c.polygonOffsetUnits = 4; c.userData = m.userData; areaMats.set(m, c) } return c };
+  const area = (pts, m, tile, y, col) => { const o = new T.Mesh(shapeGeo(pts, tile, y), areaMat(m)); o.receiveShadow = true; scene.add(o); if (col) DMAP.zones.push({pts, c: col}); return o };
   // flat ribbon along a polyline (roads, kerbs, lanes)
   function ribbon(pts, w, m, y, closed = false, vScale = 14) {
     const pos = [], uv = [], idx = [], L = offsetLine(pts, -w / 2, closed), Rr = offsetLine(pts, w / 2, closed); let d = 0;
@@ -86,8 +91,8 @@ export function buildNavapur(C) {
       for (let r = 0; r <= 16; r++) x.fillRect(0, r * 32 - 2, w, band ? 6 : 3); for (let c = 0; c <= 4; c++) x.fillRect(c * 64 - 1, 0, 3, h);
     });
   }
-  const GLASS = [['#5b86a8', '#1d3348'], ['#6fa3a8', '#20393d'], ['#8a9db8', '#2a3550'], ['#4f6f8f', '#14202e']].map(t => new T.MeshStandardMaterial({map: glassTex(t), roughness: .12, metalness: .75, envMapIntensity: 1.2}));
-  const OFFICE = new T.MeshStandardMaterial({map: glassTex(['#7fb0c4', '#2e4a5a'], 'rgba(225,228,230,.95)'), roughness: .2, metalness: .5});
+  const GLASS = [['#5b86a8', '#1d3348'], ['#6fa3a8', '#20393d'], ['#8a9db8', '#2a3550'], ['#4f6f8f', '#14202e']].map(t => new T.MeshStandardMaterial({map: glassTex(t), roughness: .24, metalness: .5, envMapIntensity: .8}));
+  const OFFICE = new T.MeshStandardMaterial({map: glassTex(['#7fb0c4', '#2e4a5a'], 'rgba(225,228,230,.95)'), roughness: .3, metalness: .32});
   const concrete = mat(0xc4bdb1, .9), darkConcrete = mat(0x6f6b65, .9), trimM = mat(0xe9e3d6, .8);
   const neonP = new T.MeshStandardMaterial({color: 0x9b4dff, emissive: 0x9b4dff, emissiveIntensity: 1.4}), neonB = new T.MeshStandardMaterial({color: 0x37b6ff, emissive: 0x37b6ff, emissiveIntensity: 1.4});
   const sandTex = ctex(256, 256, (x, w, h) => { x.fillStyle = '#c9b27f'; x.fillRect(0, 0, w, h); for (let i = 0; i < 9000; i++) { x.globalAlpha = .1 + R() * .25; x.fillStyle = ['#ad9563', '#dcc89a', '#9c8352'][i % 3]; x.fillRect(R() * w, R() * h, 2, 2) } x.globalAlpha = 1 });
@@ -104,7 +109,34 @@ export function buildNavapur(C) {
   const railM = mat(0x2f3236, .4, .7), acM = mat(0xe8e8e4, .5), tankBlack = mat(0x222222, .7), tankBlue = mat(0x2e5d9a, .6);
   const leafM = mat(0x3f7a2e, .9), leafM2 = mat(0x4f8f36, .9), trunkM = mat(0x5b4330, .95), palmLeaf = mat(0x3f8a3a, .8, 0, {side: T.DoubleSide});
   for (const m of [sand, grass, dirt, asphaltM, wetSand, paved]) m.userData.noShadow = true;
-  const road = (pts, closed, w = 14, y = .014) => { ribbon(pts, w, roadMat, y, closed); for (const s of [-1, 1]) ribbon(offsetLine(pts, s * (w / 2 + 1.6), closed), 3.2, kerbM, y + .08, closed, 3); DMAP.lines.push({pts, w, closed}) };
+  // roads sit above every district ground (areas are at y <= .03) so they never disappear under a plaza or lawn;
+  // kerbs are built at the end and cut away where another road crosses, so junctions stay open
+  const KERBQ = [];
+  const road = (pts, closed, w = 14, y = .06) => { ribbon(pts, w, roadMat, y, closed); KERBQ.push({pts, w, y, closed}); DMAP.lines.push({pts, w, closed}) };
+  function buildKerbs() {
+    for (const q of KERBQ) for (const sd of [-1, 1]) {
+      const off = offsetLine(q.pts, sd * (q.w / 2 + 1.6), q.closed), keep = off.map(([x, z]) => {
+        for (const L of DMAP.lines) { if (L.pts === q.pts) continue; const r = L.w / 2 + 3.5; for (const p of L.pts) if (Math.abs(p[0] - x) < r && Math.abs(p[1] - z) < r && Math.hypot(p[0] - x, p[1] - z) < r) return false }
+        return true });
+      if (keep.every(Boolean)) { ribbon(off, 3.2, kerbM, q.y + .08, q.closed, 3); continue }
+      let run = [];
+      const out = () => { if (run.length > 1) ribbon(run, 3.2, kerbM, q.y + .08, false, 3); run = [] };
+      off.forEach((p, i) => { if (keep[i]) run.push(p); else out() }); out();
+    }
+  }
+  // building placement: nudge a footprint off the roads, or give up (null) if there's no room nearby
+  function hitsRoad(x, z, w, d, ry, m) {
+    const c = Math.cos(ry), sn = Math.sin(ry), R0 = Math.hypot(w, d) / 2 + m;
+    for (const L of DMAP.lines) { const hw = L.w / 2 + m; for (const p of L.pts) { const dx = p[0] - x, dz = p[1] - z; if (Math.abs(dx) > R0 + hw || Math.abs(dz) > R0 + hw) continue;
+      const lx = dx * c - dz * sn, lz = dx * sn + dz * c; if (Math.abs(lx) < w / 2 + hw && Math.abs(lz) < d / 2 + hw) return p } }
+    return null;
+  }
+  function placeClear(x, z, w, d, ry, m = 2.5) {
+    let p = hitsRoad(x, z, w, d, ry, m); if (!p) return [x, z];
+    let dx = x - p[0], dz = z - p[1], l = Math.hypot(dx, dz); if (l < .01) { dx = 1; dz = 0; l = 1 } dx /= l; dz /= l;
+    for (let st = 3; st <= 48; st += 3) { const nx = x + dx * st, nz = z + dz * st; if (!hitsRoad(nx, nz, w, d, ry, m)) return [nx, nz] }
+    return null;
+  }
 
   // ---------- the island ----------
   // coastline: noisy west / north / east edges, the fort headland, the Bandra Bay crescent,
@@ -160,6 +192,7 @@ export function buildNavapur(C) {
     }
   }
   function building(x, z, ry, w, d, floors, opts = {}) {
+    { const c = placeClear(x, z, w + 1, d + 2.6, ry); if (!c) return; [x, z] = c }
     const fh = 3.1, H = floors * fh + .2, fac = opts.fac || FACADE[Math.floor(R() * FACADE.length)];
     put(boxUV(w, H, d, 16, 12.8), fac, x, H / 2, z, 0, ry, 0);
     cube(darkConcrete, x, .15, z, w + .6, .3, d + .6, ry);
@@ -175,6 +208,7 @@ export function buildNavapur(C) {
   }
   // tower with setbacks so the skyline isn't a set of plain boxes
   function tower(x, z, w, d, h, m, ry, opts = {}) {
+    { const c = placeClear(x, z, w + 4, d + 4, ry); if (!c) return; [x, z] = c }
     const h1 = h * .62, h2 = h * .26, h3 = h - h1 - h2;
     put(boxUV(w + 3, 6, d + 3, 8, 4), concrete, x, 3, z, 0, ry, 0);
     put(boxUV(w, h1, d, 16, 32), m, x, 6 + h1 / 2, z, 0, ry, 0); cube(trimM, x, 6 + h1 + .3, z, w + .8, .6, d + .8, ry);
@@ -187,7 +221,9 @@ export function buildNavapur(C) {
 
   // ---------- roads ----------
   road(RING_PTS.filter(([x, z]) => !(x > -168 && x < 168 && z > 100)), false);
-  const spoke = (ctrl) => road(sampleCurve(ctrl, false, 4), false);
+  // spoke ends that stop near the ring are snapped onto its centre line, so every junction actually connects
+  const snapRing = p => { let best = null, bd = 30; for (const q of RING_PTS) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = q } } return best ? [best[0], best[1]] : p };
+  const spoke = (ctrl) => { ctrl = ctrl.slice(); ctrl[0] = snapRing(ctrl[0]); ctrl[ctrl.length - 1] = snapRing(ctrl[ctrl.length - 1]); road(sampleCurve(ctrl, false, 4), false, 14, .056) };
   spoke([[40, -246], [30, -300], [-5, -350], [-20, -400], [-10, -445]]);
   spoke([[262, 30], [320, 38], [380, 30], [440, 44], [492, 40]]);
   spoke([[250, -175], [310, -190], [370, -170], [430, -195], [490, -185]]);
@@ -197,6 +233,12 @@ export function buildNavapur(C) {
   for (const x of [-120, -40, 40, 120]) spoke([[x, -170], [x + 3, -205], [x, -246]]);
   spoke([[-238, 104], [-270, 132], [-300, 150]]);
   spoke([[215, 116], [228, 145], [240, 172]]);
+  // the old city's east-west streets used to stop dead at its edge: run each one out to the ring road
+  for (const z of [-120, -40, 40, 120]) for (const sg of [-1, 1]) {
+    const p0 = [sg * 170, z]; let q = null, bd = 1e9;
+    for (const p of RING_PTS) { if (Math.sign(p[0]) !== sg) continue; const d = Math.abs(p[1] - z) * 3 + Math.abs(p[0] - p0[0]); if (d < bd) { bd = d; q = p } }
+    if (q && Math.hypot(q[0] - p0[0], q[1] - p0[1]) > 14) road(sampleCurve([p0, [(p0[0] + q[0]) / 2, (z + q[1]) / 2], [q[0], q[1]]], false, 4), false, 14, .056);
+  }
 
   // ---------- trees / palms ----------
   const TREES = [], PALMS = [];
@@ -216,7 +258,7 @@ export function buildNavapur(C) {
     const jet = new T.Mesh(new T.ConeGeometry(1.2, 6, 12, 1, true), new T.MeshStandardMaterial({color: 0xdff4ff, transparent: true, opacity: .45, roughness: .1})); jet.position.set(cx, 6.5, cz); scene.add(jet);
     TICK.push((dt, t) => { jet.scale.y = 1 + Math.sin(t * 3) * .12 }); addColl(cx - 9.5, cx + 9.5, cz - 9.5, cz + 9.5, 2);
     { const mx = 76, mz = -280, ry = -.35; put(new T.CylinderGeometry(24, 24, 16, 32, 1, false, PI, PI), OFFICE, mx, 8, mz, 0, ry, 0); put(new T.CylinderGeometry(24.5, 24.5, .8, 32, 1, false, PI, PI), concrete, mx, 16.4, mz, 0, ry, 0); addOColl(mx, mz, 50, 26, ry, 16); ROOMS.push({x: mx, z: mz, w: 50, d: 26});
-      const ms = sign('NAVAPUR MALL', '#141414', '#ffd21f', 3, .9); ms.position.set(mx - 22 * Math.sin(ry), 13, mz - 22 * Math.cos(ry)); ms.rotation.y = ry + PI; scene.add(ms) }
+      const ms = sign('STARTUP MALL', '#141414', '#ffd21f', 3, .9); ms.position.set(mx - 22 * Math.sin(ry), 13, mz - 22 * Math.cos(ry)); ms.rotation.y = ry + PI; scene.add(ms) }
     for (let i = 0; i < 18; i++) { const a = i / 18 * PI * 2; TREES.push([cx + Math.cos(a) * 30, cz + Math.sin(a) * 30, 1]) }
   }
 
@@ -224,8 +266,8 @@ export function buildNavapur(C) {
   {
     const zone = blob(180, -360, 70, 82, .2, 28, .3); area(zone, grass, 6, .018, '#5f8fa0'); label('IT Park', 180, -360);
     [[150, -315, 34, 18, 34], [215, -318, 30, 18, 42], [150, -372, 30, 22, 48], [215, -380, 34, 20, 30], [168, -425, 28, 18, 38]].forEach(([x, z, w, d, h]) => {
-      h *= .7; const ry = rnd(-.6, .6); put(boxUV(w, h, d, 16, 32), OFFICE, x, h / 2, z, 0, ry, 0); cube(trimM, x, h + .3, z, w + .6, .6, d + .6, ry); cube(white, x, h * .5, z, w + .3, .35, d + .3, ry); addOColl(x, z, w + 1, d + 1, ry, h); ROOMS.push({x, z, w, d}) });
-    const s = sign('Navapur IT Park', '#127a5a', '#fff', 1.8, .7); s.position.set(150, 4, -296); s.rotation.y = -.5; scene.add(s); treesIn(zone, 50);
+      h *= .7; const ry = rnd(-.6, .6); { const c = placeClear(x, z, w + 1, d + 1, ry); if (!c) return; [x, z] = c } put(boxUV(w, h, d, 16, 32), OFFICE, x, h / 2, z, 0, ry, 0); cube(trimM, x, h + .3, z, w + .6, .6, d + .6, ry); cube(white, x, h * .5, z, w + .3, .35, d + .3, ry); addOColl(x, z, w + 1, d + 1, ry, h); ROOMS.push({x, z, w, d}) });
+    const s = sign('Startup IT Park', '#127a5a', '#fff', 1.8, .7); s.position.set(150, 4, -296); s.rotation.y = -.5; scene.add(s); treesIn(zone, 50);
   }
 
   // ======================= UNIVERSITY =======================
@@ -234,7 +276,7 @@ export function buildNavapur(C) {
     put(boxUV(40, 14, 16, 16, 12.8), FACADE[1], -205, 7, -380); put(new T.SphereGeometry(7, 20, 12, 0, PI * 2, 0, PI / 2), mat(0xd9d2c2, .5), -205, 14, -380);
     for (let i = 0; i < 6; i++) put(new T.CylinderGeometry(.6, .6, 9, 12), white, -219 + i * 5.6, 4.5, -371.5);
     addColl(-226, -184, -389, -371, 14); ROOMS.push({x: -205, z: -380, w: 40, d: 16});
-    const s = sign('Navapur University', '#7b2d8b', '#fff', 1.4, .6); s.position.set(-205, 11.5, -371.9); scene.add(s); treesIn(zone, 22);
+    const s = sign('Startup City University', '#7b2d8b', '#fff', 1.4, .6); s.position.set(-205, 11.5, -371.9); scene.add(s); treesIn(zone, 22);
   }
 
   // ======================= RESIDENTIAL: winding lanes with houses at angles =======================
@@ -245,7 +287,7 @@ export function buildNavapur(C) {
       [[-310, -40], [-330, -95], [-318, -150]], [[-430, -48], [-420, 10], [-438, 70]], [[-350, -150], [-360, -230], [-330, -290]], [[-440, -160], [-455, -250], [-420, -300]]];
     const names = ['Shanti Kunj CHS', 'Sai Darshan', 'Gokul Dham', 'Prem Nagar CHS', 'Om Shanti Apts', 'Laxmi Niwas', 'Ganga Vihar'];
     let k = 0;
-    for (const ctrl of lanes) { const pts = sampleCurve(ctrl, false, 4); ribbon(pts, 8, asphaltM, .016, false, 8); DMAP.lines.push({pts, w: 8}) }
+    for (const ctrl of lanes) { const pts = sampleCurve(ctrl, false, 4); ribbon(pts, 8, asphaltM, .05, false, 8); DMAP.lines.push({pts, w: 8}) }
     for (const ctrl of lanes) {
       const pts = sampleCurve(ctrl, false, 4);
       for (let i = 4; i < pts.length - 2; i += 6) for (const side of [-1, 1]) {
@@ -263,12 +305,12 @@ export function buildNavapur(C) {
 
   // ======================= SLUMS: dense irregular huts =======================
   {
-    const zone = blob(205, -20, 26, 125, .2); area(zone, dirt, 4, .016, '#b5875f'); label('Slums', 200, -20);
-    const cols = [0xd96a5a, 0x5aa0d9, 0xe0c25a, 0x7cc47a, 0xc98ad9, 0xe8e0d0, 0x8d7a66], hm = new T.InstancedMesh(BOX, mat(0xffffff, .9), 1100), tm = new T.InstancedMesh(new T.BoxGeometry(1, .08, 1), mat(0xffffff, .7), 1100), o = new T.Object3D();
+    const zone = blob(205, -20, 26, 125, .2); area(zone, dirt, 4, .016, '#b5875f'); label('Old Town', 200, -20);
+    const cols = [0xd96a5a, 0x5aa0d9, 0xe0c25a, 0x7cc47a, 0xc98ad9, 0xe8e0d0, 0x8d7a66], hm = new T.InstancedMesh(BOX, mat(0xffffff, .9), 1100), tm = new T.InstancedMesh(new T.BoxGeometry(1, .08, 1), mat(0xffffff, .7), LOW ? 500 : 1100), o = new T.Object3D();
     let n = 0;
-    for (let i = 0; i < 4000 && n < 1100; i++) {
+    for (let i = 0; i < 4000 && n < (LOW ? 500 : 1100); i++) {
       const x = rnd(170, 240), z = rnd(-150, 110); if (!inPoly(zone, x, z) || Math.abs(x - 205 - Math.sin(z * .05) * 6) < 1.8) continue;
-      const h = rnd(2.4, 3.6) * (R() < .22 ? 1.7 : 1), ry = rnd(-.5, .5), sx = rnd(2.4, 3.2), sz = rnd(2.6, 3.4);
+      const h = rnd(2.4, 3.6) * (R() < .22 ? 1.7 : 1), ry = rnd(-.5, .5), sx = rnd(2.4, 3.2), sz = rnd(2.6, 3.4); if (hitsRoad(x, z, sx, sz, ry, 1.5)) continue;
       o.position.set(x, h / 2, z); o.scale.set(sx, h, sz); o.rotation.set(0, ry, 0); o.updateMatrix(); hm.setMatrixAt(n, o.matrix); hm.setColorAt(n, new T.Color(cols[n % cols.length]));
       o.position.y = h + .05; o.scale.set(sx + .5, 1, sz + .5); o.rotation.set(rnd(-.06, .06), ry, rnd(-.08, .08)); o.updateMatrix(); tm.setMatrixAt(n, o.matrix); tm.setColorAt(n, new T.Color(R() < .6 ? 0x2f6fd0 : (R() < .5 ? 0x8d8d8d : 0xb44a3a))); n++;
       addOColl(x, z, sx, sz, ry, h);
@@ -286,7 +328,7 @@ export function buildNavapur(C) {
     put(boxUV(120, 12, 26, 16, 32), OFFICE, 375, 6, 12); addColl(315, 435, -1, 25, 12);
     const roofS = new T.Shape(); roofS.moveTo(-14, 0); roofS.quadraticCurveTo(0, 7, 14, 0); roofS.lineTo(14, -.8); roofS.quadraticCurveTo(0, 6, -14, -.8); roofS.closePath();
     put(new T.ExtrudeGeometry(roofS, {depth: 126, bevelEnabled: false}), white, 312, 12.4, 12, 0, PI / 2, 0);
-    const ts = sign('NAVAPUR INTERNATIONAL AIRPORT', '#141414', '#fff', 2.2, .8); ts.position.set(375, 9.5, 25.2); scene.add(ts);
+    const ts = sign('STARTUP CITY INTERNATIONAL AIRPORT', '#141414', '#fff', 2.2, .8); ts.position.set(375, 9.5, 25.2); scene.add(ts);
     put(new T.CylinderGeometry(2.2, 3, 34, 16), concrete, 455, 17, 14); put(new T.CylinderGeometry(6, 4.5, 5, 16), GLASS[1], 455, 36.5, 14); put(new T.CylinderGeometry(6.4, 6.4, .8, 16), white, 455, 39.4, 14); addColl(452, 458, 11, 17, 40);
     function plane3(px, pz, ry, livery) {
       const g = new T.Group(), body = mat(0xf4f4f2, .35, .2), liv = mat(livery, .4, .2);
@@ -313,7 +355,7 @@ export function buildNavapur(C) {
   {
     const zone = blob(380, -210, 120, 110, .2); area(zone, dirt, 5, .016, '#8a7a6a'); label('Industrial Zone', 360, -255);
     [[300, -125, 40, 26, 11], [360, -128, 46, 26, 13], [430, -120, 40, 30, 12], [305, -235, 36, 30, 14], [462, -245, 34, 50, 12]].forEach(([x, z, w, d, h]) => {
-      const ry = rnd(-.35, .35); put(boxUV(w, h, d, 4, 4), corr, x, h / 2, z, 0, ry, 0); const rs = new T.Shape(); rs.moveTo(-d / 2, 0); rs.lineTo(0, 3.5); rs.lineTo(d / 2, 0); rs.closePath();
+      const ry = rnd(-.35, .35); { const c = placeClear(x, z, w, d, ry); if (!c) return; [x, z] = c } put(boxUV(w, h, d, 4, 4), corr, x, h / 2, z, 0, ry, 0); const rs = new T.Shape(); rs.moveTo(-d / 2, 0); rs.lineTo(0, 3.5); rs.lineTo(d / 2, 0); rs.closePath();
       const g = new T.ExtrudeGeometry(rs, {depth: w, bevelEnabled: false}); g.rotateY(PI / 2); g.translate(-w / 2, 0, 0); put(g, mat(0x7d8489, .5, .6), x, h, z, 0, ry, 0); addOColl(x, z, w, d, ry, h + 3); ROOMS.push({x, z, w, d}) });
     for (const [x, z, h] of [[382, -232, 48], [398, -244, 56], [412, -228, 44]]) {
       for (let i = 0; i < 6; i++) put(new T.CylinderGeometry(2.4 - i * .12, 2.6 - i * .12, h / 6, 16), i % 2 ? white : red, x, h / 12 + i * h / 6, z);
@@ -348,7 +390,7 @@ export function buildNavapur(C) {
   {
     const cx = -430, cz = 215;
     for (let i = 0; i < 26; i++) { const a = R() * PI * 2, r = rnd(10, 60); put(new T.DodecahedronGeometry(rnd(8, 18), 0), rock, cx + Math.cos(a) * r, rnd(-6, 2), cz + Math.sin(a) * r * .8, R() * 3, R() * 3, R() * 3) }
-    put(new T.CylinderGeometry(56, 64, 4, 24), rock, cx, 0, cz); area(blob(cx, cz, 44, 40, .12), grass, 6, 2.05, '#8b7d68'); label('Navapur Fort', cx, cz);
+    put(new T.CylinderGeometry(56, 64, 4, 24), rock, cx, 0, cz); area(blob(cx, cz, 44, 40, .12), grass, 6, 2.05, '#8b7d68'); label('Old Fort', cx, cz);
     const W = 64, D = 52, H = 9, ry = .18, c = Math.cos(ry), s = Math.sin(ry), P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
     for (const [w, d, lx, lz] of [[W, 2.5, 0, -D / 2], [W, 2.5, 0, D / 2], [2.5, D, -W / 2, 0], [2.5, D, W / 2, 0]]) {
       const [x, z] = P(lx, lz); put(boxUV(w, H, d, 4, 4), stone, x, 2 + H / 2, z, 0, ry, 0); addOColl(x, z, w, d, ry, H + 2);
@@ -387,7 +429,7 @@ export function buildNavapur(C) {
     const sc = new T.InstancedMesh(cG, mat(0xffffff, .6, .3), 260); n = 0;
     for (let i = 0; i < 26; i++) for (let j = 0; j < 8; j++) for (let l = 0; l < 1 + (i * 3 + j) % 3 && n < 260; l++) { o.position.set(-66 + i * 6.3, 7.3 + l * 2.6, -9.5 + j * 2.7); o.rotation.set(0, 0, 0); o.updateMatrix(); sc.setMatrixAt(n, o.matrix); sc.setColorAt(n, new T.Color(cols[(i + j * 3 + l) % cols.length])); n++ }
     sc.count = n; ship.add(sc); ship.traverse(q => { if (q.isMesh) q.castShadow = true });
-    const s = sign('NAVAPUR PORT TRUST', '#1e5fa8', '#fff', 2, .7); s.position.set(206, 5, 172); s.rotation.y = PI; scene.add(s);
+    const s = sign('STARTUP CITY PORT TRUST', '#1e5fa8', '#fff', 2, .7); s.position.set(206, 5, 172); s.rotation.y = PI; scene.add(s);
   }
 
   // ======================= SEA LINK bridge =======================
@@ -414,25 +456,132 @@ export function buildNavapur(C) {
       const c = new T.Color().setHSL(.27 - north * .06, .38, .3 + Math.min(.1, h * .0008)); if (h > 95) c.lerp(new T.Color(0x8a7d68), .5); col.push(c.r, c.g, c.b) }
     g.setAttribute('color', new T.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
     const hills = new T.Mesh(g, new T.MeshStandardMaterial({vertexColors: true, roughness: .95})); hills.position.set(0, 0, -470 - D / 2 + 8); hills.receiveShadow = true; scene.add(hills);
-    { const hp = []; for (let x = -540; x <= 540; x += 30) hp.push([x, -455 - Math.abs(Math.sin(x * .013) * 22 + Math.sin(x * .041) * 9)]); hp.push([560, -700], [-560, -700]); DMAP.zones.push({pts: hp, c: '#4f7a3a'}) } label('Sahyadri Hills', -260, -500);
+    
     const hAt = (x, z) => Math.max(.3, hAt0(x, z - hills.position.z));
-    const fG = new T.ConeGeometry(2.4, 7, 7); fG.translate(0, 3.5, 0); const fI = new T.InstancedMesh(fG, leafM, 900), o = new T.Object3D(); let n = 0;
-    for (let i = 0; i < 1400 && n < 900; i++) { const x = rnd(-600, 600), z = rnd(-640, -480), h = hAt(x, z); if (h < 4 || h > 100 || (x > 150 && x < 400 && z > -560 && z < -480)) continue; o.position.set(x, h - .5, z); o.scale.setScalar(rnd(.8, 1.6)); o.rotation.y = R() * 6; o.updateMatrix(); fI.setMatrixAt(n++, o.matrix) }
+    const fG = new T.ConeGeometry(2.4, 7, 7); fG.translate(0, 3.5, 0); const fI = new T.InstancedMesh(fG, leafM, LOW ? 300 : 900), o = new T.Object3D(); let n = 0;
+    for (let i = 0; i < 1400 && n < (LOW ? 300 : 900); i++) { const x = rnd(-600, 600), z = rnd(-640, -480), h = hAt(x, z); if (h < 4 || h > 100 || (x > 150 && x < 400 && z > -560 && z < -480)) continue; o.position.set(x, h - .5, z); o.scale.setScalar(rnd(.8, 1.6)); o.rotation.y = R() * 6; o.updateMatrix(); fI.setMatrixAt(n++, o.matrix) }
     fI.count = n; fI.castShadow = true; scene.add(fI);
     const lake = new T.Mesh(new T.PlaneGeometry(220, 80), seaMat); lake.rotation.x = -PI / 2; lake.position.set(275, 6, -530); scene.add(lake);
     put(new T.BoxGeometry(240, 22, 8), concrete, 275, 0, -488); for (let i = 0; i < 8; i++) put(new T.BoxGeometry(6, 14, 2), mat(0xdfeff7, .2, 0, {transparent: true, opacity: .7}), 205 + i * 20, 2, -483);
-    label('Khadak Dam', 250, -520);
+    
     const blades = [];
     for (const [x, z] of [[-60, -560], [-20, -575], [25, -560]]) { const y = hAt(x, z); put(new T.CylinderGeometry(.9, 1.6, 40, 10), white, x, y + 20, z);
       const hub = new T.Group(); hub.position.set(x, y + 40, z + 1.6); scene.add(hub); for (let b = 0; b < 3; b++) { const bl = new T.Mesh(new T.BoxGeometry(1.4, 18, .3), white); bl.position.y = 9; const arm = new T.Group(); arm.rotation.z = b * PI * 2 / 3; arm.add(bl); hub.add(arm) } blades.push(hub) }
-    TICK.push(dt => { for (const b of blades) b.rotation.z += dt * .9 }); label('Windmill Point', -60, -555);
+    TICK.push(dt => { for (const b of blades) b.rotation.z += dt * .9 }); 
     { const x = -300, z = -560, y = hAt(x, z); put(new T.BoxGeometry(10, 6, 10), mat(0xf2e9d8, .7), x, y + 3, z); put(new T.ConeGeometry(5, 12, 8), orangeM, x, y + 12, z) }
   }
 
-  // ---------- scattered trees over the rest of the island ----------
-  for (let i = 0; i < 900 && TREES.length < 1400; i++) { const x = rnd(-495, 495), z = rnd(-460, 140); if ((x > -175 && x < 175 && z > -175) || !inPoly(coast, x, z) || !free(x, z, 3)) continue; TREES.push([x, z, rnd(.8, 1.5)]) }
+  // ======================= STARTUP CAFÉ (walk-in meeting place) =======================
+  // every chair, sofa place and bar stool is pushed to CAFE.seats so players can sit (X)
   {
-    makeTrees(scene, TREES.map(([x, z, s]) => [x, 0, z, s]), {rnd: R}); const o = new T.Object3D();
+    const {x: CX, z: CZ, w: CW, d: CD} = CAFE, x0 = CX - CW / 2, x1 = CX + CW / 2, z0 = CZ - CD / 2, z1 = CZ + CD / 2, WH = 6.2, SEATS = CAFE.seats = [];
+    const seat = (x, z, top, ry, back = true) => SEATS.push({x, z, y: top - .475, ry, back}); // back: stand up behind the chair (the table is in front)
+    // ---- textures
+    const plankT = ctex(512, 512, (x, w, h) => { for (let r = 0; r < 16; r++) { const y = r * 32; for (let c = -1; c < 4; c++) { const off = (r % 2) * 80 + c * 160; x.fillStyle = `hsl(${26 + R() * 6},${38 + R() * 10}%,${36 + R() * 9}%)`; x.fillRect(off, y, 158, 30);
+      for (let g = 0; g < 6; g++) { x.strokeStyle = 'rgba(40,20,8,.18)'; x.beginPath(); x.moveTo(off, y + 4 + g * 4.5 + R() * 2); x.bezierCurveTo(off + 50, y + R() * 30, off + 100, y + R() * 30, off + 158, y + 4 + g * 4.5); x.stroke() } }
+      x.fillStyle = 'rgba(20,10,4,.55)'; x.fillRect(0, y + 30, w, 2) } });
+    plankT.wrapS = plankT.wrapT = T.RepeatWrapping;
+    const brickT = ctex(512, 512, (x, w, h) => { x.fillStyle = '#d9d0c4'; x.fillRect(0, 0, w, h); for (let r = 0; r < 16; r++) for (let c = -1; c < 5; c++) { const off = (r % 2) * 56 + c * 112; x.fillStyle = `hsl(${12 + R() * 8},${42 + R() * 14}%,${38 + R() * 12}%)`; x.fillRect(off + 2, r * 32 + 2, 108, 28) } });
+    brickT.wrapS = brickT.wrapT = T.RepeatWrapping;
+    const slatT = ctex(256, 256, (x, w, h) => { x.fillStyle = '#3a2a1f'; x.fillRect(0, 0, w, h); for (let i = 0; i < 8; i++) { x.fillStyle = `hsl(28,40%,${42 + R() * 8}%)`; x.fillRect(i * 32 + 3, 0, 26, h) } });
+    slatT.wrapS = slatT.wrapT = T.RepeatWrapping;
+    const marbleT = ctex(256, 256, (x, w, h) => { x.fillStyle = '#f2f0ec'; x.fillRect(0, 0, w, h); for (let i = 0; i < 14; i++) { x.strokeStyle = `rgba(120,120,130,${.12 + R() * .2})`; x.lineWidth = .5 + R() * 1.5; x.beginPath(); x.moveTo(R() * w, 0); x.bezierCurveTo(R() * w, h * .3, R() * w, h * .7, R() * w, h); x.stroke() } });
+    const chalk = ctex(512, 256, (x, w, h) => { x.fillStyle = '#1f2622'; x.fillRect(0, 0, w, h); x.strokeStyle = '#8a6a44'; x.lineWidth = 14; x.strokeRect(7, 7, w - 14, h - 14); x.fillStyle = '#f4efe2'; x.font = '700 34px "Baloo 2",sans-serif'; x.fillText('MENU', 30, 52);
+      x.font = '600 24px "Baloo 2",sans-serif'; [['Filter coffee', '₹30'], ['Masala chai', '₹15'], ['Cold brew', '₹60'], ['Pitch + coffee', '₹40'], ['Vada pav', '₹20']].forEach(([a, b], i) => { x.fillText(a, 34, 92 + i * 32); x.fillText(b, w - 110, 92 + i * 32) }); x.fillStyle = '#ffd21f'; x.fillText('★ Free Wi-Fi for founders', 260, 52) });
+    const neonT = ctex(1024, 192, (x, w, h) => { x.clearRect(0, 0, w, h); x.font = '900 104px "Baloo 2",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = '#ff3fa4'; x.shadowBlur = 28; x.fillStyle = '#ffd3ec'; x.fillText('BUILD · MEET · SHIP', w / 2, h / 2) });
+    const muralT = ctex(1024, 384, (x, w, h) => { const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#1f6f5c'); g.addColorStop(1, '#0f3d52'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 9; i++) { x.fillStyle = `rgba(255,210,31,${.08 + R() * .1})`; x.beginPath(); x.arc(R() * w, R() * h, 30 + R() * 90, 0, 7); x.fill() }
+      x.fillStyle = '#ffd21f'; x.font = '900 120px "Baloo 2",sans-serif'; x.fillText('STARTUP CAFÉ', 50, 170); x.fillStyle = '#ffffff'; x.font = '700 54px "Baloo 2",sans-serif'; x.fillText('☕ Coffee · 💻 Code · 🤝 Co-founders', 54, 280) });
+    const awnT = ctex(256, 64, (x, w, h) => { for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#f4efe2' : '#1f6f5c'; x.fillRect(i * 32, 0, 32, h) } });
+    awnT.wrapS = T.RepeatWrapping;
+    const glowT = ctex(128, 128, (x, w, h) => { const g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,214,140,.55)'); g.addColorStop(1, 'rgba(255,214,140,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h) });
+    // ---- materials
+    const M = o => new T.MeshStandardMaterial(o), plankM = M({map: plankT, roughness: .62}), brickM = M({map: brickT, roughness: .9}), slatM = M({map: slatT, roughness: .7}), marbleM = M({map: marbleT, roughness: .25});
+    const wood = mat(0x7a4b2c, .65), woodL = mat(0xc89a6a, .6), cream = mat(0xf3ead8, .85), dark = mat(0x26221f, .55), brass = mat(0xc9a25a, .3, .75), steelC = mat(0xb9bec4, .3, .8);
+    const glassC = M({color: 0xcfeaff, transparent: true, opacity: .2, roughness: .03, metalness: .3, depthWrite: false});
+    const leather = mat(0x7a3f2a, .55), fabric = mat(0x2f5d73, .8), green = mat(0x3f8a36, .85), green2 = mat(0x2f7a3a, .85), potC = mat(0xe4ddd0, .7), terra = mat(0xb5643a, .8);
+    const warm = M({color: 0xfff1c9, emissive: 0xffd58a, emissiveIntensity: 1.3}), screenM = M({color: 0x0b1a2a, emissive: 0x3aa0ff, emissiveIntensity: .7}), cupM = mat(0xffffff, .4);
+    const neonM = new T.MeshBasicMaterial({map: neonT, transparent: true, depthWrite: false}), glowM = new T.MeshBasicMaterial({map: glowT, transparent: true, depthWrite: false, blending: T.AdditiveBlending});
+    // ---- ground: paved plaza around it
+    area(blob(CX + 7, CZ, 31, 23, .1), paved, 3, .035);
+    // ---- floor, walls, ceiling
+    { const g = boxUV(CW, .08, CD, 4, 4); put(g, plankM, CX, .04, CZ) }
+    cube(cream, x0 + .3, WH / 2, CZ, .6, WH, CD); addColl(x0, x0 + .6, z0, z1, WH);
+    { const p = new T.PlaneGeometry(CD - 1.2, WH - .2); const uv = p.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 5, uv.getY(i) * 1.3); put(p, brickM, x0 + .62, WH / 2, CZ, 0, PI / 2, 0) } // exposed brick inside
+    for (const zz of [z0 + .3, z1 - .3]) { cube(cream, CX, WH / 2, zz, CW, WH, .6); addColl(x0, x1, zz - .3, zz + .3, WH); cube(wood, CX, .55, zz + (zz < CZ ? .32 : -.32), CW - 1.4, 1.1, .06) } // + wood wainscot
+    { const p = new T.PlaneGeometry(CW - 1.2, CD - 1.2); const uv = p.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 9, uv.getY(i) * 6); put(p, slatM, CX, WH - .05, CZ, PI / 2, 0, 0) } // wooden slat ceiling
+    // glass front with wood-clad pillars and a 7 m entrance
+    const door = 7, seg = (CD - door) / 2;
+    for (const e of [-1, 1]) { const zc = CZ + e * (door / 2 + seg / 2); put(BOX, glassC, x1 - .1, WH / 2, zc, 0, 0, 0, .1, WH - .4, seg); addColl(x1 - .3, x1 + .1, zc - seg / 2, zc + seg / 2, WH);
+      for (let k = 0; k <= 3; k++) cube(k === 0 || k === 3 ? wood : dark, x1 - .1, WH / 2, zc - seg / 2 + k * seg / 3, k === 0 || k === 3 ? .5 : .12, WH, k === 0 || k === 3 ? .5 : .1);
+      cube(dark, x1 - .1, 2.4, zc, .12, .08, seg) }
+    cube(wood, x1 - .1, WH - .35, CZ, .4, .7, door + .6);
+    // roof with wood fascia
+    put(boxUV(CW + 2, .5, CD + 2, 4, 4), concrete, CX, WH + .25, CZ); cube(wood, CX, WH + .62, CZ, CW + 2.4, .3, CD + 2.4);
+    // striped awning over the terrace + posts + string lights
+    { const aw = new T.BoxGeometry(8.6, .12, CD - 2); const uv = aw.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6, uv.getY(i)); put(aw, M({map: awnT, roughness: .8}), x1 + 4.1, WH - .9, CZ, 0, 0, -.12) }
+    for (const zz of [z0 + 1.5, z1 - 1.5]) cube(dark, x1 + 8.2, (WH - 1.4) / 2, zz, .18, WH - 1.4, .18);
+    for (let i = 0; i <= 18; i++) { const t = i / 18, zz = z0 + 1.5 + t * (CD - 3), sag = Math.sin(t * PI) * .5; put(new T.SphereGeometry(.09, 8, 6), warm, x1 + 8.1, WH - 1.5 - sag, zz) }
+    // big signs: roof sign, door sign, mural on the street side
+    const s1 = sign('STARTUP CAFÉ', '#1f6f5c', '#ffd21f', 3.2, 1); s1.position.set(x1 + 1.3, WH + 1.9, CZ); s1.rotation.y = PI / 2; scene.add(s1);
+    const s2 = sign('☕ Meet founders here', '#141414', '#ffffff', 1.2, .5); s2.position.set(x1 + .2, 2.9, CZ - door / 2 - 1.6); s2.rotation.y = PI / 2; scene.add(s2);
+    { const mu = new T.Mesh(new T.PlaneGeometry(CW - 4, 7.8), M({map: muralT, roughness: .8})); mu.position.set(CX, 3.3, z0 - .02); mu.rotation.y = PI; scene.add(mu) }
+    // ---- counter: slatted front, marble top, machines, back bar with chalkboard menu and shelves
+    { const f = new T.BoxGeometry(1.6, 1.15, 12); put(f, slatM, x0 + 3.2, .6, CZ); put(new T.BoxGeometry(2, .08, 12.4), marbleM, x0 + 3.2, 1.22, CZ); addColl(x0 + 2.3, x0 + 4.1, CZ - 6.2, CZ + 6.2, 1.3) }
+    for (const zz of [CZ - 3.5, CZ + 1, CZ + 4]) { cube(steelC, x0 + 3.0, 1.58, zz, .62, .62, .78); cube(dark, x0 + 3.0, 1.92, zz, .64, .08, .8); put(new T.CylinderGeometry(.05, .05, .2, 8), steelC, x0 + 3.4, 1.4, zz) }
+    for (let i = 0; i < 6; i++) put(new T.CylinderGeometry(.06, .05, .14, 10), cupM, x0 + 3.5, 1.33, CZ - 2 + i * .28);
+    cube(wood, x0 + 1.0, 1.0, CZ, .7, 2, 11); cube(marbleM, x0 + 1.0, 2.04, CZ, .8, .06, 11.2);
+    { const cb = new T.Mesh(new T.PlaneGeometry(4.6, 2.3), M({map: chalk, roughness: .9})); cb.position.set(x0 + .66, 4.0, CZ - 2.6); cb.rotation.y = PI / 2; scene.add(cb) }
+    for (let i = 0; i < 2; i++) { cube(wood, x0 + .9, 3.2 + i * .9, CZ + 3.4, .45, .06, 4); for (let j = 0; j < 7; j++) put(new T.CylinderGeometry(.11, .1, .3, 10), [mat(0x8a5a36, .5), mat(0xdcd3c3, .4), mat(0x2f5d73, .5)][(i + j) % 3], x0 + .9, 3.4 + i * .9, CZ + 1.7 + j * .55) }
+    // bar stools in front of the counter (sittable, facing the counter)
+    for (let i = 0; i < 4; i++) { const sz = CZ - 4.5 + i * 3, sx = x0 + 4.9; put(new T.CylinderGeometry(.26, .26, .08, 16), leather, sx, .82, sz); put(new T.CylinderGeometry(.04, .04, .8, 8), steelC, sx, .41, sz); put(new T.TorusGeometry(.18, .02, 6, 16), steelC, sx, .3, sz, PI / 2); seat(sx, sz, .86, -PI / 2) }
+    // neon sign on the brick-side wall
+    { const n = new T.Mesh(new T.PlaneGeometry(8, 1.5), neonM); n.position.set(CX + 2, 4.4, z0 + .64); scene.add(n) }
+    // pendant lamps with soft light pools on the floor
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { const lx = x0 + 9 + i * 5.2, lz = CZ - 7 + j * 7;
+      put(new T.CylinderGeometry(.015, .015, 1.4, 4), dark, lx, WH - .75, lz); put(new T.ConeGeometry(.42, .38, 16, 1, true), brass, lx, WH - 1.6, lz); put(new T.SphereGeometry(.15, 10, 8), warm, lx, WH - 1.75, lz);
+      const gl = new T.Mesh(new T.PlaneGeometry(4.5, 4.5), glowM); gl.rotation.x = -PI / 2; gl.position.set(lx, .1, lz); scene.add(gl) }
+    // ---- tables with chairs, laptops and coffee cups (all chairs sittable)
+    const tableG = new T.CylinderGeometry(.75, .75, .06, 24), legG = new T.CylinderGeometry(.05, .09, .74, 10), footG = new T.CylinderGeometry(.32, .36, .04, 16);
+    const seatG = new T.BoxGeometry(.5, .07, .48), backG = new T.BoxGeometry(.5, .52, .06), cLegG = new T.CylinderGeometry(.025, .025, .48, 5);
+    const laptop = (x, z, ry) => { put(new T.BoxGeometry(.42, .025, .3), steelC, x, .83, z, 0, ry, 0); const bx = x - Math.sin(ry) * .15, bz = z - Math.cos(ry) * .15; put(new T.BoxGeometry(.42, .28, .02), steelC, bx, .97, bz, -.25, ry, 0); put(new T.PlaneGeometry(.38, .24), screenM, bx + Math.sin(ry) * .012, .97, bz + Math.cos(ry) * .012, -.25, ry, 0) };
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) { const tx = x0 + 10 + i * 5.1, tz = CZ + (j ? 5.6 : -5.6);
+      put(tableG, marbleM, tx, .8, tz); put(legG, dark, tx, .41, tz); put(footG, dark, tx, .03, tz); addColl(tx - .55, tx + .55, tz - .55, tz + .55, .9);
+      for (let k = 0; k < 4; k++) { const a = k * PI / 2 + .4, cx = tx + Math.cos(a) * 1.15, cz = tz + Math.sin(a) * 1.15, face = Math.atan2(-Math.cos(a), -Math.sin(a));
+        put(seatG, wood, cx, .5, cz, 0, face, 0); put(backG, wood, cx + Math.cos(a) * .23, .8, cz + Math.sin(a) * .23, 0, face, 0); for (const [lx, lz] of [[-.2, -.18], [.2, -.18], [-.2, .18], [.2, .18]]) put(cLegG, dark, cx + lx, .25, cz + lz);
+        seat(cx, cz, .54, face) }
+      if ((i + j) % 2 === 0) laptop(tx + .25, tz - .1, Math.atan2(-1, 0)); put(new T.CylinderGeometry(.05, .04, .1, 10), cupM, tx - .3, .88, tz + .2) }
+    // ---- lounge: rug, two sofas (3 places each), coffee table, floor lamp
+    { const rugT = ctex(128, 128, (x, w, h) => { x.fillStyle = '#7b3b2a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#e8c98a'; x.lineWidth = 6; x.strokeRect(10, 10, w - 20, h - 20); x.strokeStyle = '#2f5d73'; x.lineWidth = 3; x.strokeRect(24, 24, w - 48, h - 48) });
+      const rug = new T.Mesh(new T.PlaneGeometry(5.5, 6.5), M({map: rugT, roughness: 1})); rug.rotation.x = -PI / 2; rug.position.set(x0 + 26, .09, CZ); scene.add(rug) }
+    for (const e of [-1, 1]) { const sz = CZ + e * 2.2, sx = x0 + 26;
+      cube(fabric, sx, .3, sz, 3.4, .36, 1); cube(fabric, sx, .55, sz - e * .05, 3.2, .18, .9); cube(fabric, sx, .95, sz + e * .45, 3.4, .8, .22); for (const s of [-1, 1]) cube(fabric, sx + s * 1.6, .6, sz, .22, .6, 1);
+      addColl(sx - 1.75, sx + 1.75, sz - .55, sz + .55, .9);
+      for (const k of [-1, 0, 1]) seat(sx + k * 1.0, sz - e * .12, .66, e < 0 ? 0 : PI, false) }
+    cube(woodL, x0 + 26, .38, CZ, 1.8, .07, 1.2); for (const [a, b] of [[-.8, -.5], [.8, -.5], [-.8, .5], [.8, .5]]) cube(dark, x0 + 26 + a, .19, CZ + b, .06, .36, .06);
+    put(new T.CylinderGeometry(.05, .04, .1, 10), cupM, x0 + 25.7, .47, CZ); put(new T.CylinderGeometry(.05, .04, .1, 10), cupM, x0 + 26.3, .47, CZ + .2);
+    put(new T.CylinderGeometry(.03, .03, 1.8, 6), brass, x0 + 28.3, .9, CZ + 3.4); put(new T.ConeGeometry(.35, .4, 14, 1, true), cream, x0 + 28.3, 1.9, CZ + 3.4); put(new T.SphereGeometry(.12, 8, 6), warm, x0 + 28.3, 1.8, CZ + 3.4);
+    // ---- plants: big pots in the corners + hanging planters by the glass
+    for (const [px, pz] of [[x0 + 1.4, z0 + 1.4], [x0 + 1.4, z1 - 1.4], [x1 - 1.4, z0 + 1.4], [x1 - 1.4, z1 - 1.4], [x0 + 7.4, z0 + 1.3], [x0 + 7.4, z1 - 1.3]]) {
+      put(new T.CylinderGeometry(.5, .38, .9, 14), potC, px, .5, pz); for (let k = 0; k < 4; k++) put(new T.IcosahedronGeometry(.55, 1), k % 2 ? green : green2, px + Math.cos(k * 1.7) * .3, 1.4 + k * .35, pz + Math.sin(k * 1.7) * .3, 0, 0, 0, 1, 1.2, 1); addColl(px - .55, px + .55, pz - .55, pz + .55, 1.2) }
+    for (let i = 0; i < 5; i++) { const hz = z0 + 2.5 + i * (CD - 5) / 4; if (Math.abs(hz - CZ) < door / 2) continue; put(new T.CylinderGeometry(.008, .008, 1.2, 4), dark, x1 - .9, WH - .7, hz); put(new T.SphereGeometry(.28, 10, 8), terra, x1 - .9, WH - 1.4, hz); put(new T.IcosahedronGeometry(.4, 1), green, x1 - .9, WH - 1.65, hz, 0, 0, 0, 1, 1.3, 1) }
+    // ---- pitch stage + screen + podium
+    cube(dark, x0 + 18, .3, z1 - 2.4, 8, .45, 3.2); cube(wood, x0 + 18, .55, z1 - 2.4, 8.1, .06, 3.3); addColl(x0 + 14, x0 + 22, z1 - 4, z1 - .6, .6);
+    const scr = sign('PITCH NIGHT · FRIDAY 8 PM', '#0f2740', '#7fd0ff', 1.4, .6); scr.position.set(x0 + 18, 3.6, z1 - .65); scr.rotation.y = PI; scene.add(scr);
+    cube(wood, x0 + 15.2, 1.1, z1 - 2.2, .6, 1.1, .5); put(new T.CylinderGeometry(.015, .015, .4, 4), dark, x0 + 15.2, 1.85, z1 - 2.3, .5);
+    // ---- terrace: planter boxes along the edge, tables with two chairs each (sittable)
+    for (const e of [-1, 1]) { cube(wood, x1 + 8.6, .4, CZ + e * 8.5, .6, .8, 6); put(new T.BoxGeometry(.5, .3, 5.8), green2, x1 + 8.6, .95, CZ + e * 8.5); addColl(x1 + 8.3, x1 + 8.9, CZ + e * 8.5 - 3, CZ + e * 8.5 + 3, .9) }
+    for (const e of [-1, 1]) for (const k of [0, 1]) { const tx = x1 + 3 + k * 3.4, tz = CZ + e * (door / 2 + 2.6);
+      put(tableG, cream, tx, .8, tz, 0, 0, 0, .7, 1, .7); put(legG, dark, tx, .41, tz); put(new T.CylinderGeometry(.035, .035, 2.6, 6), dark, tx, 1.5, tz); put(new T.ConeGeometry(1.5, .5, 12), mat([0xe8742a, 0x1f6f5c][(k + (e > 0 ? 1 : 0)) % 2], .7), tx, 2.85, tz); addColl(tx - .45, tx + .45, tz - .45, tz + .45, .9);
+      for (const s of [-1, 1]) { const cx = tx + s * .95, face = s > 0 ? -PI / 2 : PI / 2; put(seatG, wood, cx, .5, tz, 0, face, 0); put(backG, wood, cx + s * .23, .8, tz, 0, face, 0); seat(cx, tz, .54, face) } }
+    ROOMS.push({x: CX + 4, z: CZ, w: CW + 10, d: CD + 4});
+    label('Startup Café', CX, CZ);
+  }
+
+  // ---------- scattered trees over the rest of the island ----------
+  for (let i = 0; i < 900 && TREES.length < (LOW ? 550 : 1400); i++) { const x = rnd(-495, 495), z = rnd(-460, 140); if ((x > -175 && x < 175 && z > -175) || !inPoly(coast, x, z) || !free(x, z, 3)) continue; TREES.push([x, z, rnd(.8, 1.5)]) }
+  {
+    makeTrees(scene, TREES.map(([x, z, s]) => [x, 0, z, s]), {rnd: R, onTree: (x, z) => addColl(x - .35, x + .35, z - .35, z + .35, 3)}); /* solid trunks */ const o = new T.Object3D();
 
     const pT = new T.CylinderGeometry(.22, .32, 9, 7); pT.translate(0, 4.5, 0); const fr = new T.PlaneGeometry(1.4, 6); fr.translate(0, 3, 0);
     const pI = new T.InstancedMesh(pT, mat(0x8a6a48, .9), PALMS.length), fI = new T.InstancedMesh(fr, palmLeaf, PALMS.length * 7);
@@ -442,7 +591,7 @@ export function buildNavapur(C) {
   }
 
   // ---------- district boards ----------
-  for (const [t, x, z, ry, c] of [['Navapur CBD ↑', 46, -238, PI, '#1e5fa8'], ['Airport →', 268, 44, -PI / 2, '#141414'], ['Industrial Zone →', 258, -160, -PI / 2, '#8a5a2b'], ['← Residential', -258, -6, PI / 2, '#19a7a0'], ['Bandra Bay ↓', -226, 112, PI, '#e8742a'], ['Port & Docks ↓', 226, 110, PI, '#1e5fa8']]) {
+  for (const [t, x, z, ry, c] of [['City Center ↑', 46, -238, PI, '#1e5fa8'], ['Airport →', 268, 44, -PI / 2, '#141414'], ['Industrial Zone →', 258, -160, -PI / 2, '#8a5a2b'], ['← Residential', -258, -6, PI / 2, '#19a7a0'], ['Bandra Bay ↓', -226, 112, PI, '#e8742a'], ['Port & Docks ↓', 226, 110, PI, '#1e5fa8']]) {
     const s = sign(t, c, '#fff', 1.3, .6); s.position.set(x, 5.4, z); s.rotation.y = ry; scene.add(s); put(new T.BoxGeometry(.25, 5, .25), steel, x, 2.5, z);
   }
 
@@ -451,6 +600,7 @@ export function buildNavapur(C) {
   addColl(-500, -490, 166, 700, 4); addColl(-490, -365, 275, 700, 4); addColl(-365, -172, 216, 700, 4);
   addColl(-172, 186, 170.6, 700, 4); addColl(186, 480, 268, 700, 4); addColl(480, 500, 166, 700, 4);
 
+  buildKerbs();
   flush();
 }
 
