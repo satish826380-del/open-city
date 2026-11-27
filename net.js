@@ -9,7 +9,7 @@
 // - Remote players are interpolated 100 ms in the past, extrapolated up to 250 ms, then frozen;
 //   shown within 60 m, hidden beyond 70 m, faded in/out over 300 ms, removed after 5 s of silence.
 import * as T from 'three';
-import {NET} from './net-config.js?v=5';
+import {NET} from './net-config.js?v=6';
 import {getSupa} from './auth.js?v=3';
 
 // ?bgtest keeps a hidden tab sending (only for testing two tabs on one PC)
@@ -118,7 +118,7 @@ export function startNet(G) {
   const _a = {x: 0, y: 0, z: 0, r: 0};
   function sample(r, now) {
     const b = r.buf; if (!b.length) return null;
-    const rt = now - r.off - (r.src === 'fb' ? 1000 + INTERP : INTERP); // fallback is 1/s, so look a bit further back
+    const rt = now - r.off - (r.src === 'fb' ? 1000 / NET.fallbackRate + INTERP : INTERP); // backup updates are less frequent, so look a little further back
     let i = b.length - 1;
     if (rt >= b[i].t) {
       const L = b[i], P = b[i - 1];
@@ -282,7 +282,9 @@ export function startNet(G) {
     }
     st.slowT -= dt;
     if (st.slowT <= 0) { st.slowT = 1; const rest = [...st.peers.keys()].filter(p => !st.near.has(p)); if (rest.length) sendTo('mv', cur, rest) }
-    if (st.fb.size) { st.fbSendT -= dt; if (st.fbSendT <= 0) { st.fbSendT = 1 / NET.fallbackRate; const ch = st.fb.get(`mn-f-${st.cell}#${st.inst}`); if (ch) ch.send({type: 'broadcast', event: 'mv', payload: cur}) } }
+    // backup link: several times a second while moving, a keep-alive every second while standing still
+    if (st.fb.size) { st.fbSendT -= dt; const fl = st.fbLast, moved = !fl || Math.abs(cur.x - fl.x) + Math.abs(cur.z - fl.z) + Math.abs(cur.y - fl.y) > .03 || Math.abs(wrapPI(cur.r - fl.r)) > .03 || cur.a !== fl.a;
+      if (st.fbSendT <= 0 && (moved || now - (st.fbAt || 0) > 1000)) { st.fbSendT = 1 / NET.fallbackRate; st.fbLast = cur; st.fbAt = now; const ch = st.fb.get(`mn-f-${st.cell}#${st.inst}`); if (ch) ch.send({type: 'broadcast', event: 'mv', payload: cur}) } }
     // draw everyone else
     for (const [id, r] of st.remotes) {
       // a player who left is removed; one who is still linked but silent (tab hidden) is only hidden, so their name/role/account stay known

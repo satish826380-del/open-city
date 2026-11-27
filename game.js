@@ -7,7 +7,7 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {startNet} from './net.js?v=17';
+import {startNet} from './net.js?v=18';
 import {buildMetro} from './metro.js?v=2';
 import {makeFacades} from './facades.js?v=2';
 import {makeTrees} from './trees.js?v=1';

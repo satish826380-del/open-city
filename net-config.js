@@ -14,7 +14,7 @@ export const NET = {
   hideAt: 125,       // hide beyond this (hysteresis, no flicker)
   rate: 10,          // P2P movement updates per second (only when changed)
   nearCap: 12,       // full-rate updates go to the nearest N players; the rest get 1/s
-  p2pTimeout: 4000,  // ms to wait for WebRTC before using the Supabase fallback for that player
-  fallbackRate: 1,   // fallback updates per second
+  p2pTimeout: 2500,  // ms to wait for WebRTC before using the Supabase fallback for that player
+  fallbackRate: 6,   // fallback updates per second while moving (1/s when standing still)
   chatRange: 20,     // chat messages only reach players within this distance (m)
 };
