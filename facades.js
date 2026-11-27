@@ -4,9 +4,9 @@
 // rain stains and posters. Each texture is 4 bays x 4 floors (one bay = 4 m, one floor = 3.2 m).
 import * as T from 'three';
 
-const WALLS = [['#e9b7b5', '#f6ece4'], ['#f2c9a0', '#fff3e4'], ['#f0d58c', '#fff6dc'], ['#bfe0c8', '#f4f7ef'], ['#b8d4e8', '#f4f7fb'], ['#d6c4e6', '#f6f0fa'],
-  ['#efe3cc', '#c9a77c'], ['#d9906a', '#f4e4d2'], ['#f2efe8', '#9db7c9'], ['#c8c3ba', '#ebe7df'], ['#e7a6c2', '#fbeef3'], ['#a9cfc0', '#eef6f1'],
-  ['#f4b183', '#fdf0e2'], ['#d4d8b0', '#f7f8ee'], ['#c9b8a2', '#efe7dc'], ['#9fc3d9', '#eef5fa'], ['#f3dfb7', '#a85a3a'], ['#e3d6f0', '#ffffff'], ['#d8e3c2', '#7a9a5a'], ['#ecc9c2', '#fff']];
+const WALLS = [['#c75f48', '#f6e7cf'], ['#e6a15a', '#fff3e0'], ['#f0c75e', '#fff6dc'], ['#7fbf9a', '#f4f7ef'], ['#6fa8d0', '#f4f7fb'], ['#a88fcc', '#f6f0fa'],
+  ['#efe0bf', '#a8643c'], ['#b9573f', '#f4e4d2'], ['#f2efe8', '#4f86a8'], ['#c9a27a', '#fbf3e4'], ['#d9728f', '#fbeef3'], ['#4fa89a', '#eef6f1'],
+  ['#e8864a', '#fdf0e2'], ['#9fb868', '#f7f8ee'], ['#a65a48', '#efe0cc'], ['#5f94c4', '#eef5fa'], ['#f3dfb7', '#a8432f'], ['#8f7bbd', '#ffffff'], ['#d8e3c2', '#4f7a3a'], ['#d9604f', '#fff']];
 const SHUTTER = ['#2f6b4a', '#7a4a2a', '#2c5f8a', '#8a3a2a'];
 const GLASS = ['#5b7186', '#4c6478', '#6a8296'];
 

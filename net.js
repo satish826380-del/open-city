@@ -9,7 +9,7 @@
 // - Remote players are interpolated 100 ms in the past, extrapolated up to 250 ms, then frozen;
 //   shown within 60 m, hidden beyond 70 m, faded in/out over 300 ms, removed after 5 s of silence.
 import * as T from 'three';
-import {NET} from './net-config.js?v=3';
+import {NET} from './net-config.js?v=4';
 import {getSupa} from './auth.js?v=3';
 
 // ?bgtest keeps a hidden tab sending (only for testing two tabs on one PC)
@@ -17,7 +17,7 @@ const BGTEST = new URLSearchParams(location.search).has('bgtest'), NOP2P = BGTES
 const CHAT_RANGE = NET.chatRange || 20; // metres: chat bubbles only reach players this close
 const INTERP = 100, EXTRAP = 250, STALE = 5000, FADE = .3, KEEPALIVE = 2000;
 const r2 = v => Math.round(v * 100) / 100;
-const wrapPI = a => ((a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+const wrapPI = a => Math.atan2(Math.sin(a), Math.cos(a)); // shortest turn, for any angle
 const cellOf = (x, z) => [Math.floor(x / NET.cell), Math.floor(z / NET.cell)];
 const zoneOf = (x, z) => `${Math.floor(x / NET.zone)}_${Math.floor(z / NET.zone)}`;
 
@@ -39,7 +39,7 @@ export function startNet(G) {
   const st = {
     online: false, count: 1, inst: 1, zone: '', cell: '', rooms: new Map(), peers: new Map(), remotes: new Map(),
     near: new Set(), last: null, lastSent: 0, slowT: 0, checkT: 0, nearT: 0, emoteUntil: 0, emote: '',
-    zoneCh: null, onlineCh: null, fb: new Map(), fbPeers: new Set(), fbIdle: 0, fbSendT: 0, firstSeen: new Map(), zoneMeta: new Map(), zoneLists: new Map(), zoneListen: new Map(), chatT: 0,
+    zoneCh: null, onlineCh: null, fb: new Map(), fbPeers: new Set(), fbIdle: 0, fbSendT: 0, firstSeen: new Map(), zoneMeta: new Map(), zoneLists: new Map(), zoneListen: new Map(), chatT: 0, everyone: new Map(), spot: null, joinSeq: 0, joinAt: 0,
   };
   let TR = null, selfId = '', supa = null;
   const api = {
@@ -48,6 +48,17 @@ export function startNet(G) {
     stats: () => ({cell: st.cell, inst: st.inst, rooms: [...st.rooms.keys()], p2p: st.peers.size, shown: [...st.remotes.values()].filter(r => r.alpha > 0).length, fallback: st.fbPeers.size, fbChannels: st.fb.size, online: st.count}),
   };
   if (!NET.url || !NET.key) { G.onStatus('Offline · single player'); api.chat = t => { t = String(t || '').trim().slice(0, 120); if (t) G.onChat(G.local().name, t, true) }; return api }
+
+  // Supabase hands back the old channel if the same topic is re-opened while it is still closing, and that
+  // channel never delivers anything again. So remember what is closing and open it only once it has gone.
+  const closing = new Map();
+  function drop(ch) {
+    const topic = ch.topic.replace(/^realtime:/, '');
+    const done = Promise.resolve(supa.removeChannel(ch)).catch(() => {}).then(() => { closing.delete(topic) });
+    closing.set(topic, done);
+  }
+
+  const exists = name => supa.getChannels().some(c => c.topic === 'realtime:' + name);
 
   // ---------- remote player records (one per Trystero peer id; fallback data uses the same id) ----------
   function remote(id) {
@@ -123,6 +134,14 @@ export function startNet(G) {
     return _a;
   }
 
+  // a chat line from another player, over either route: only close players hear it
+  function hear(id, d) {
+    const t = clean(d && d.t); if (!t) return;
+    const r = st.remotes.get(id); if (!r || !r.g || distTo(r) > CHAT_RANGE + 5) return;
+    G.onChat(r.name, t, false); say(r, t.slice(0, 60));
+  }
+  const distTo = r => Math.hypot(r.g.position.x - G.local().x, r.g.position.z - G.local().z);
+
   // ---------- Trystero: cell rooms ----------
   function roomIds() {
     const L = G.local(), [cx, cz] = cellOf(L.x, L.z), ids = [];
@@ -143,7 +162,7 @@ export function startNet(G) {
     room.onPeerLeave = pid => { const p = st.peers.get(pid); if (!p) return; p.rooms.delete(id); if (!p.rooms.size) st.peers.delete(pid) };
     mv.onMessage = (d, {peerId}) => snap(peerId, d, 'p2p');
     hi.onMessage = (d, {peerId}) => { const r = remote(peerId); const role = d && typeof d.r === 'string' ? d.r.slice(0, 20) : ''; const ch = role !== r.role; r.role = role; r.uid = d && typeof d.u === 'string' ? d.u.slice(0, 40) : ''; r.startup = d && typeof d.s === 'string' ? d.s.slice(0, 60) : ''; rename(r, d && d.n); if (ch) retag(r); r.look = (d && d.l) || {}; build(r) };
-    ch.onMessage = (d, {peerId}) => { const t = clean(d && d.t); if (!t) return; const r = st.remotes.get(peerId); if (!r || !r.g || Math.hypot(r.g.position.x - G.local().x, r.g.position.z - G.local().z) > CHAT_RANGE + 5) return; /* only close players hear it */ G.onChat(r ? r.name : 'Someone', t, false); if (r) say(r, t.slice(0, 60)) };
+    ch.onMessage = (d, {peerId}) => hear(peerId, d);
     st.rooms.set(id, R);
   }
   function syncRooms() {
@@ -166,10 +185,14 @@ export function startNet(G) {
   // ---------- Supabase presence, instances, fallback ----------
   function presenceList(ch) { const s = ch.presenceState(), out = []; for (const k in s) { const m = s[k][0]; if (m) out.push(m) } return out }
   async function joinZone(zone) {
-    if (st.zoneCh) { supa.removeChannel(st.zoneCh); st.zoneCh = null }
-    st.zone = zone; st.zoneLists.delete('own');
-    for (const [n, ch] of st.zoneListen) if (n.startsWith(`mn-z-${zone}#`)) { supa.removeChannel(ch); st.zoneListen.delete(n); st.zoneLists.delete(n) } // same topic twice would clash
+    if (st.zoneCh) { drop(st.zoneCh); st.zoneCh = null }
+    st.zone = zone; st.zoneLists.delete('own'); const seq = ++st.joinSeq;
+    for (const [n, ch] of st.zoneListen) if (n.startsWith(`mn-z-${zone}#`)) { drop(ch); st.zoneListen.delete(n); st.zoneLists.delete(n) } // same topic twice would clash
     for (let inst = 1; inst <= 20; inst++) {
+      const name = `mn-z-${zone}#${inst}`;
+      const old = supa.getChannels().find(c => c.topic === 'realtime:' + name); if (old && !closing.has(name)) drop(old);
+      await closing.get(name);
+      if (seq !== st.joinSeq || exists(name)) return; // a newer join has taken over
       const ch = supa.channel(`mn-z-${zone}#${inst}`, {config: {presence: {key: selfId}}});
       const ok = await new Promise(res => {
         let done = false; const fin = v => { if (!done) { done = true; res(v) } };
@@ -183,9 +206,9 @@ export function startNet(G) {
           if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') fin(true);
         });
       });
-      if (zone !== st.zone) { supa.removeChannel(ch); return } // moved on while joining
+      if (seq !== st.joinSeq) { drop(ch); return } // moved on while joining
       if (ok) { st.zoneCh = ch; if (st.inst !== inst) { st.inst = inst; console.info('[net] instance', inst, 'for zone', zone) } return }
-      supa.removeChannel(ch); // this instance is full, try the next one
+      drop(ch); // this instance is full, try the next one
     }
   }
   function mergeZones() { st.zoneMeta = new Map(); for (const l of st.zoneLists.values()) for (const [k, m] of l) st.zoneMeta.set(k, m) }
@@ -193,8 +216,8 @@ export function startNet(G) {
   function listenZones() {
     const L = G.local(), [cx, cz] = cellOf(L.x, L.z), want = new Set(), C = NET.cell, Z = NET.zone;
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const z = `${Math.floor((cx + dx) * C / Z)}_${Math.floor((cz + dz) * C / Z)}`; if (z !== st.zone) want.add(`mn-z-${z}#${st.inst}`) }
-    for (const [n, ch] of st.zoneListen) if (!want.has(n)) { supa.removeChannel(ch); st.zoneListen.delete(n); st.zoneLists.delete(n) }
-    for (const n of want) if (!st.zoneListen.has(n)) {
+    for (const [n, ch] of st.zoneListen) if (!want.has(n)) { drop(ch); st.zoneListen.delete(n); st.zoneLists.delete(n) }
+    for (const n of want) if (!st.zoneListen.has(n) && !closing.has(n) && !exists(n)) {
       const ch = supa.channel(n, {config: {presence: {key: 'l_' + selfId}}});
       ch.on('presence', {event: 'sync'}, () => { st.zoneLists.set(n, new Map(presenceList(ch).filter(m => m.t && m.t !== selfId).map(m => [m.t, m]))); mergeZones() });
       ch.subscribe(); st.zoneListen.set(n, ch);
@@ -218,10 +241,11 @@ export function startNet(G) {
     st.fbIdle = st.fbPeers.size ? 0 : st.fbIdle + 1;
     const want = new Set();
     if (st.fbPeers.size || (st.fb.size && st.fbIdle < 10)) for (const id of roomIds()) want.add(id.replace('cell_', 'mn-f-'));
-    for (const [id, ch] of st.fb) if (!want.has(id)) { supa.removeChannel(ch); st.fb.delete(id) }
-    for (const id of want) if (!st.fb.has(id)) {
+    for (const [id, ch] of st.fb) if (!want.has(id)) { drop(ch); st.fb.delete(id) }
+    for (const id of want) if (!st.fb.has(id) && !closing.has(id) && !exists(id)) {
       const ch = supa.channel(id, {config: {broadcast: {self: false, ack: false}}});
       ch.on('broadcast', {event: 'mv'}, ({payload: p}) => { if (p && p.i && p.i !== selfId) snap(p.i, p, 'fb') });
+      ch.on('broadcast', {event: 'ch'}, ({payload: p}) => { if (p && p.i && Array.isArray(p.to) && p.to.includes(selfId)) hear(p.i, p) }); // addressed to close players only
       ch.subscribe(); st.fb.set(id, ch);
     }
   }
@@ -243,6 +267,8 @@ export function startNet(G) {
       const [cx, cz] = cellOf(L.x, L.z), cell = `${cx}_${cz}`, zone = zoneOf(L.x, L.z);
       if (cell !== st.cell) { st.cell = cell; if (zone !== st.zone) joinZone(zone).then(() => { syncRooms(); listenZones() }); else { syncRooms(); listenZones(); if (st.zoneCh) st.zoneCh.track(zoneMeta()) } }
       checkFallback(now);
+      shareSpot();
+      if (st.zoneCh) listenZones(); else if (st.online && now - st.joinAt > 6000) { st.joinAt = now; joinZone(zone).then(() => { syncRooms(); listenZones() }).catch(e => console.warn('[net]', e)) }
       // nearest N peers get full-rate updates
       const ds = [...st.peers.keys()].map(pid => { const r = st.remotes.get(pid), p = r && r.buf[r.buf.length - 1]; return [pid, p ? Math.hypot(p.x - L.x, p.z - L.z) : 0] }).sort((a, b) => a[1] - b[1]);
       st.near = new Set(ds.slice(0, NET.nearCap).map(d => d[0]));
@@ -285,8 +311,16 @@ export function startNet(G) {
     }
   };
   function status() {
-    const n = st.remotes.size ? [...st.remotes.values()].filter(r => r.shown).length : 0;
-    G.onStatus(`Online · ${st.count} ${st.count === 1 ? 'player' : 'players'}` + (n ? ` · ${n} nearby` : '') + (st.inst > 1 ? ` · #${st.inst}` : '') + (st.fbPeers.size ? ` · ${st.fbPeers.size} fallback` : ''));
+    G.onStatus(`Online · ${st.count} ${st.count === 1 ? 'player' : 'players'}`);
+  }
+  // Where am I, for other players' maps. Whole metres, only after moving 15 m, at most every 8 s: every update is
+  // delivered to everyone online, so it has to stay rare.
+  function shareSpot(force) {
+    const ch = st.onlineCh; if (!ch) return;
+    const L = G.local(), now = performance.now(), p = st.spot;
+    if (!force && p && (now - p.at < 8000 || (Math.hypot(L.x - p.x, L.z - p.z) < 15 && p.n === L.name))) return;
+    st.spot = {x: L.x, z: L.z, n: L.name, at: now};
+    ch.track({t: selfId, n: L.name, x: Math.round(L.x), z: Math.round(L.z)});
   }
   // chat for now goes P2P to connected players nearby (Phase 3 adds filters and the cell log)
   const clean = t => String(t || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 120);
@@ -294,15 +328,28 @@ export function startNet(G) {
     text = clean(text); if (!text) return; const now = performance.now();
     if (now - st.chatT < 1000) return; st.chatT = now;
     G.onChat(G.local().name, text, true);
-    if (st.online) sendTo('ch', {t: text}, [...st.peers.keys()].filter(pid => { const r = st.remotes.get(pid); return r && r.g && r.alpha > 0 && Math.hypot(r.g.position.x - G.local().x, r.g.position.z - G.local().z) < CHAT_RANGE }));
+    if (!st.online) return;
+    const close = [...st.remotes.values()].filter(r => r.g && r.alpha > 0 && distTo(r) < CHAT_RANGE).map(r => r.id);
+    sendTo('ch', {t: text}, close.filter(id => st.peers.has(id)));
+    const viaBackup = close.filter(id => !st.peers.has(id) && st.fbPeers.has(id));
+    const ch = st.fb.get(`mn-f-${st.cell}#${st.inst}`);
+    if (viaBackup.length && ch) ch.send({type: 'broadcast', event: 'ch', payload: {i: selfId, t: text, to: viaBackup}});
+    if (!close.length && G.onNobody) G.onNobody(CHAT_RANGE);
   };
   api.emote = e => { st.emote = e === 'wave' ? 'wave' : e; st.emoteUntil = performance.now() + 1600 };
   api.retrack = () => { if (!st.online) return; sendTo('hi', hello(), st.peers.keys()); if (st.zoneCh) st.zoneCh.track(zoneMeta()) };
   api.debug = () => [...st.remotes.values()].map(r => ({id: r.id, name: r.name, src: r.src, shown: r.shown, a: +r.alpha.toFixed(2), x: r.g ? +r.g.position.x.toFixed(1) : null, z: r.g ? +r.g.position.z.toFixed(1) : null, anim: r.anim}));
   // players you can see right now, nearest first (for the phone's Nearby app)
   api.nearby = () => { const L = G.local(); return [...st.remotes.values()].filter(r => r.g && r.alpha > 0).map(r => ({id: r.id, name: r.name, role: r.role || 'Explorer', uid: r.uid || '', startup: r.startup || '', x: r.g.position.x, z: r.g.position.z, d: Math.hypot(r.g.position.x - L.x, r.g.position.z - L.z)})).sort((a, b) => a.d - b.d) };
+  api.vehicles = () => [...st.remotes.values()].filter(r => r.veh && r.alpha > 0).map(r => ({g: r.veh.g, type: r.vehType}));
   api.meet = pid => { if (st.peers.has(pid)) sendTo('mt', {}, [pid]) };
-  api.positions = () => [...st.remotes.values()].filter(r => r.g && r.alpha > 0).map(r => ({x: r.g.position.x, z: r.g.position.z, name: r.name}));
+  // for the maps: players you can see are exact, everyone else online is where they last reported
+  api.positions = () => {
+    const out = [], seen = new Set([selfId]);
+    for (const [id, r] of st.remotes) if (r.g && r.alpha > 0) { seen.add(id); out.push({x: r.g.position.x, z: r.g.position.z, name: r.name}) }
+    for (const [id, m] of st.everyone) if (!seen.has(id)) out.push(m);
+    return out;
+  };
   if (BGTEST) api._snap = (id, p) => snap(id, p, 'p2p'); // test hook: feed a fake player
   window.__mnNet = api;
 
@@ -314,9 +361,12 @@ export function startNet(G) {
     selfId = TR.selfId; api.id = selfId;
     // online count: one presence channel, join/leave only
     const oc = supa.channel('mn-online', {config: {presence: {key: selfId}}});
-    oc.on('presence', {event: 'sync'}, () => { st.count = Math.max(1, Object.keys(oc.presenceState()).length); if (st.online) status() });
-    oc.subscribe(s => { if (s === 'SUBSCRIBED') oc.track({t: selfId}) });
-    st.onlineCh = oc;
+    oc.on('presence', {event: 'sync'}, () => {
+      const all = oc.presenceState(), everyone = new Map();
+      for (const id in all) { const m = all[id][all[id].length - 1]; if (id !== selfId && m && Number.isFinite(m.x) && Number.isFinite(m.z)) everyone.set(id, {x: m.x, z: m.z, name: String(m.n || 'Player').slice(0, 16)}) }
+      st.everyone = everyone; st.count = Math.max(1, Object.keys(all).length); if (st.online) status();
+    });
+    oc.subscribe(s => { if (s === 'SUBSCRIBED') { st.onlineCh = oc; shareSpot(true) } });
     const L = G.local(), [cx, cz] = cellOf(L.x, L.z); st.cell = `${cx}_${cz}`;
     await joinZone(zoneOf(L.x, L.z));
     syncRooms(); listenZones();

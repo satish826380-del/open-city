@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Startup City admin</title>
+<script type="importmap">{"imports":{"@supabase/supabase-js":"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm"}}</script>
+<style>
+body{margin:0;padding:16px;background:#0c1a1f;color:#eafffb;font:15px system-ui,sans-serif;max-width:900px;margin-inline:auto}
+h1{font-size:22px}h2{font-size:17px;color:#2dd4bf;margin-top:24px}
+input,select,button{font:inherit;min-height:38px;border-radius:8px;border:1px solid #2f5259;background:#132a31;color:#fff;padding:4px 10px}
+button{cursor:pointer;background:#2dd4bf;color:#04211f;border:0;font-weight:700}button.no{background:#ff7a59}button:disabled{opacity:.5}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#11252b;border-radius:10px;padding:10px;margin:8px 0}
+.grow{flex:1 1 220px;min-width:0;overflow-wrap:anywhere}.grow small{display:block;opacity:.7}
+#msg{color:#ffb25c;min-height:1.4em}
+#map{width:100%;max-width:640px;background:#11252b;border-radius:10px;cursor:pointer;display:block}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<h1>Startup City · admin</h1>
+<p id="msg" role="status"></p>
+<form id="login" class="row" hidden>
+ <input id="email" type="email" placeholder="Admin email" autocomplete="username" required>
+ <input id="pass" type="password" placeholder="Password" autocomplete="current-password" required>
+ <button>Log in</button>
+</form>
+<main id="panel" hidden>
+ <button id="out" class="no">Log out</button>
+ <h2>Players</h2><p>New accounts can't enter the city until you approve them.</p><div id="players"></div>
+ <h2>Billboard requests</h2><div id="pending"></div>
+ <h2>Spot map</h2><p>Orange is free, green is taken. Click a number to use it in the "Add a startup" form.</p><canvas id="map" width="640" height="640"></canvas>
+ <h2>Add a startup yourself</h2>
+ <form id="add" class="row">
+  <select id="aSpot" aria-label="Spot"></select><input id="aName" placeholder="Startup name" maxlength="28" required>
+  <input id="aTag" placeholder="Tagline" maxlength="60"><input id="aUrl" placeholder="https://" maxlength="120"><button>Put on billboard</button>
+ </form>
+ <h2>On the billboards</h2><div id="live"></div>
+</main>
+<script type="module" src="admin.js?v=3"></script>
+</body>
+</html>

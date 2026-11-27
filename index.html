@@ -2,7 +2,7 @@
 <html lang="hi-Latn">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Startup City</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#141414">
@@ -21,7 +21,7 @@
 <body class="creating">
 <canvas id="c"></canvas>
 <div id="ui">
- <div id="chat"><div id="chatLog" aria-live="polite"></div><input id="chatIn" maxlength="120" placeholder="Type a message… (Enter to send, Esc to close)" autocomplete="off" hidden></div>
+ <div id="chat"><div id="chatLog" aria-live="polite"></div><input id="chatIn" enterkeyhint="send" maxlength="120" placeholder="Type a message… (Enter to send, Esc to close)" autocomplete="off" hidden></div>
  <button id="chatBtn" aria-label="Chat">💬</button>
  <div id="hud">
   <div class="hudtop" style="display:none">
@@ -53,9 +53,15 @@
 </div>
 <div id="mapov" hidden><div class="mbar"><h2>City Map</h2><span class="mtip">Click/tap = set GPS · drag = move · scroll = zoom</span><button id="mzi" aria-label="Zoom in">+</button><button id="mzo" aria-label="Zoom out">−</button><button class="ghost" id="mme">Show me</button><button class="ghost" id="mwp">Clear GPS</button><button id="mcl">Close (M)</button></div><canvas id="mapc"></canvas><div class="legend" id="leg"></div></div>
 <div class="pill" id="photoTip">Photo mode · drag to change the angle · take a screenshot · press C to go back</div>
-<div id="touch"><div id="joy"><div id="knob"></div></div><div id="tbtn"><button id="tE">E</button><button id="tJ">Jump</button><button id="tR">Run</button><button id="tH">Horn</button><button id="tS">Sit</button><button id="tW" aria-label="Wave (V)">👋 Wave</button></div></div>
+<div id="touch"><div id="joy"><div id="knob"></div></div><div id="tbtn"><button id="tE">E</button><button id="tJ">Jump</button><button id="tR">Run</button><button id="tH">Horn</button><button id="tS">Sit</button><button id="tW" aria-label="Wave (V)">👋 Wave</button></div>
+ <div id="drive" aria-label="Car controls"><div class="steer"><button id="dL" aria-label="Steer left">◀</button><button id="dR" aria-label="Steer right">▶</button></div>
+  <div class="pedals"><div class="dtop"><button id="dE" aria-label="Get out">🚪 Exit</button><button id="dH" aria-label="Horn">📯</button></div><button id="dB" class="brake" aria-label="Brake and reverse"><b>BRAKE</b><small>reverse</small></button><button id="dG" class="gas" aria-label="Accelerate"><b>GAS</b><small>▲</small></button></div></div></div>
+<div id="boardView" hidden role="dialog" aria-modal="true" aria-labelledby="bvHead"><div class="bv"><div class="bvbar"><span id="bvHead">Billboard</span><button id="bvClose" type="button" aria-label="Close">✕</button></div>
+ <canvas id="bvImg"></canvas><h2 id="bvTitle"></h2><p id="bvTag"></p><a id="bvLink" target="_blank" rel="noopener noreferrer"></a><button id="bvTake" type="button">Take this spot</button></div></div>
+<div id="adminView" hidden><div class="admbar"><b>Admin panel</b><button id="adminClose" type="button">✕ Close</button></div><iframe id="adminFrame" title="Admin panel"></iframe></div>
 <div id="fade"></div>
 <div id="charLoad" hidden aria-live="polite"><div class="clbox"><div class="clspin"></div><div id="clText">Loading character…</div><div class="clbar"><i id="clBar"></i></div><div id="clPct">0%</div></div></div>
+<div id="installPop" hidden role="dialog" aria-modal="true" aria-labelledby="ipTitle"><div class="ip"><button id="ipClose" type="button" aria-label="Close">✕</button><img src="icons/icon-192.png" alt="" width="72" height="72"><h2 id="ipTitle">Install Startup City</h2><p>Play full screen, open it from your home screen and load faster next time.</p><button id="ipYes" type="button">📲 Install the game</button><button id="ipNo" type="button" class="ghost">Not now</button></div></div>
 <div id="iosTip" hidden><div class="pm"><h2>Install Startup City</h2><p>On iPhone / iPad: tap <b>Share</b> <span aria-hidden="true">⬆️</span> at the bottom of Safari, then <b>Add to Home Screen</b>.</p><button id="iosOk">OK</button></div></div>
 <div id="pmenu" hidden role="dialog" aria-modal="true" aria-labelledby="pmTitle"><div class="pm">
  <h2 id="pmTitle">Menu</h2>
@@ -68,16 +74,53 @@
   <li><kbd>E</kbd> drive / eat / buy / talk · <kbd>X</kbd> sit · <kbd>V</kbd> wave · <kbd>T</kbd> chat</li>
   <li><kbd>P</kbd> phone · <kbd>M</kbd> map · <kbd>H</kbd> horn · <kbd>C</kbd> photo · <kbd>Esc</kbd> menu</li>
  </ul>
+ <button id="pmAdmin" hidden>🛠 Admin panel</button>
  <button id="pmInstall" hidden>📲 Install app</button>
  <button id="pmOut" class="ghost">🚪 Log out</button>
  <p class="pmhint">Press <kbd>Esc</kbd> to resume</p>
 </div></div>
-<div id="start">
- <h1>Startup City</h1>
- <p>Create your character, then live in the city: work jobs, eat, sleep and buy vehicles.</p>
- <button id="cont" class="cont" hidden>▶ Continue as <b id="contName"></b></button>
- <button id="install" class="install" hidden>📲 Install Startup City</button>
- <div id="login"><label>Account</label><div id="lgState">Checking…</div>
+<div id="start" data-tab="look">
+ <header class="s-top">
+  <div class="s-logo">Startup <span>City</span><b aria-hidden="true">🚀</b></div>
+  <button id="install" class="install" type="button" hidden>📲 Install</button>
+  <span class="s-chip" id="sMoney">₹0</span>
+  <button id="sAcc" class="s-chip" type="button">👤 Log in</button>
+ </header>
+ <section class="s-left" aria-label="Your character">
+  <div class="s-card s-me">
+   <div class="s-who"><img id="sFace" alt="" hidden><div><label for="nm">Your character</label><input id="nm" maxlength="16" value="Satish" autocomplete="off"></div></div>
+   <div class="s-gender" id="sG"></div>
+  </div>
+  <div class="s-card s-looks"><h2>Quick looks</h2><div class="s-presets" id="sP"></div></div>
+  <div class="s-card"><h2>Your vibe / role</h2><div class="rsw" id="sR"></div></div>
+ </section>
+ <div class="s-stage" id="sStage" aria-label="Drag to turn your character">
+  <div class="s-ring" aria-hidden="true"></div>
+  <div class="s-tools"><button type="button" data-v="turn" aria-label="Turn">⟳</button><button type="button" data-v="in" aria-label="Zoom in">＋</button><button type="button" data-v="out" aria-label="Zoom out">－</button><button type="button" data-v="reset" aria-label="Reset view">⛶</button></div>
+ </div>
+ <nav class="s-tabs" id="sTabs">
+  <button type="button" data-t="me"><i>🙂</i>Me</button>
+  <button type="button" data-t="look"><i>✨</i>Appearance</button>
+  <button type="button" data-t="outfit"><i>👕</i>Outfit</button>
+  <button type="button" data-t="account"><i>🔑</i>Account</button>
+ </nav>
+ <section class="s-right">
+  <div class="s-pane" data-p="look">
+   <label>Skin tone</label><div class="sw" id="sS"></div>
+   <div id="hLook"></div>
+   <div id="vLook"></div>
+  </div>
+  <div class="s-pane" data-p="outfit">
+   <label id="lO" style="display:none">Outfit</label><div class="sw" id="sO" style="display:none"></div>
+   <label>Shirt colour</label><div class="sw" id="sT"></div>
+   <label>Pants colour</label><div class="sw" id="sB"></div>
+   <div id="hRows" style="display:none"></div>
+   <div id="vcRows" style="display:none"></div>
+  </div>
+  <div class="s-pane" data-p="account">
+   <button id="sAdmin" class="cont" type="button" hidden>🛠 Admin panel</button>
+   <button id="cont" class="cont" type="button" hidden>▶ Continue as <b id="contName"></b></button>
+   <div id="login"><h2>Account</h2><div id="lgState">Checking…</div>
   <form id="lgForm" autocomplete="on" novalidate>
    <div class="lgtabs" role="tablist"><button type="button" role="tab" data-m="in" aria-selected="true">Log in</button><button type="button" role="tab" data-m="up" aria-selected="false">Sign up</button></div>
    <input id="lgEmail" type="email" placeholder="Email" autocomplete="email" required>
@@ -85,23 +128,11 @@
    <button id="lgSubmit" type="submit">Log in</button>
    <button id="lgForgot" type="button" class="lglink">Forgot password?</button>
   </form>
-  <div class="lgor" id="lgOr">or</div>
-  <div class="lgb"><button id="lgGuest" type="button">👤 Guest</button><button id="lgGoogle" type="button"><svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.8 6C12.3 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.6c-.5 2.9-2.2 5.4-4.6 7l7.4 5.8c4.3-4 7.1-9.9 7.1-17.3z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.6 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.7-4-13.6-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>Continue with Google</button><button id="lgOut" type="button" hidden>Logout</button></div>
+  <div class="lgb"><button id="lgOut" type="button" hidden>Logout</button></div>
   <div id="lgErr" role="alert"></div><div id="lgMsg" role="status"></div></div>
- <label for="nm">Name</label><input id="nm" maxlength="16" value="Satish" autocomplete="off">
- <label>Your role</label><div class="rsw" id="sR"></div>
- <label>Character</label><div class="sw" id="sG"></div>
- <label>Skin tone</label><div class="sw" id="sS"></div>
- <label>Shirt colour</label><div class="sw" id="sT"></div>
- <label>Pants colour</label><div class="sw" id="sB"></div>
- <div id="hRows" style="display:none"></div>
- <label id="lO" style="display:none">Outfit</label><div class="sw" id="sO" style="display:none"></div>
- <div id="vcRows" style="display:none"></div>
- <ul>
-  <li><kbd>WASD</kbd> walk · <kbd>Shift</kbd> run · <kbd>Space</kbd> jump · <kbd>V</kbd> wave · drag = camera</li>
-  <li><kbd>E</kbd> drive, eat, buy, sleep, talk · <kbd>X</kbd> sit · <kbd>P</kbd> phone · <kbd>M</kbd> map · <kbd>T</kbd> chat · <kbd>C</kbd> photo</li>
- </ul>
- <button id="go">Enter the city</button>
+  </div>
+ </section>
+ <button id="go" type="button">Start Your Journey</button>
 </div>
 <div id="loading"><div class="ld"><div class="ldlogo">Startup <span>City</span></div><div class="ldsub">Welcome to Startup City</div><div class="ldbar"><i id="ldFill"></i></div><div id="ldText">Building the city…</div><div class="ldtip">Tip: <b>Shift</b> to run · <b>X</b> to sit on a bench · <b>E</b> to drive any vehicle · <b>V</b> to wave</div></div></div>
 <script>addEventListener('error',e=>{const l=document.getElementById('loading');if(l&&!l.hidden)l.textContent='Could not load ('+(e.message||'network')+'). Please reload the page.'})</script>

@@ -3,6 +3,7 @@
 // blobs; buildings sit at angles along winding lanes and carry balconies, sunshades, AC units,
 // water tanks, stair rooms and tiled roofs. Static geometry is merged per material.
 import * as T from 'three';
+import {makeKit} from './citykit.js?v=6';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {makeTrees} from './trees.js?v=1';
 
@@ -70,8 +71,8 @@ export function buildNavapur(C) {
     const p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / tile, p.getZ(i) / tile); return g;
   }
   // district ground is pushed back in depth so roads and paths on top of it never flicker, even far away
-  const areaMats = new Map(), areaMat = m => { let c = areaMats.get(m); if (!c) { c = m.clone(); c.polygonOffset = true; c.polygonOffsetFactor = 2; c.polygonOffsetUnits = 4; c.userData = m.userData; areaMats.set(m, c) } return c };
-  const area = (pts, m, tile, y, col) => { const o = new T.Mesh(shapeGeo(pts, tile, y), areaMat(m)); o.receiveShadow = true; scene.add(o); if (col) DMAP.zones.push({pts, c: col}); return o };
+  const areaMats = new Map(), areaMat = m => { let c = areaMats.get(m); if (!c) { c = m.clone(); c.userData = m.userData; areaMats.set(m, c) } return c };
+  const area = (pts, m, tile, y, col) => { const o = new T.Mesh(shapeGeo(pts, tile, y), areaMat(m)); stampGeometry(o.geometry, y); o.receiveShadow = true; scene.add(o); if (col) DMAP.zones.push({pts, c: col}); return o };
   // flat ribbon along a polyline (roads, kerbs, lanes)
   function ribbon(pts, w, m, y, closed = false, vScale = 14) {
     const pos = [], uv = [], idx = [], L = offsetLine(pts, -w / 2, closed), Rr = offsetLine(pts, w / 2, closed); let d = 0;
@@ -79,6 +80,7 @@ export function buildNavapur(C) {
     const n = pts.length; for (let i = 0; i < n - 1 + (closed ? 1 : 0); i++) { const a = i * 2, b = ((i + 1) % n) * 2; idx.push(a, b, a + 1, a + 1, b, b + 1) }
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
     if (g.attributes.normal.getY(0) < 0) { const nn = g.attributes.normal; for (let i = 0; i < nn.count; i++) nn.setXYZ(i, 0, 1, 0); g.setIndex(idx.map((v, i) => idx[i - i % 3 + (2 - i % 3)])) }
+    stampGeometry(g, y);
     const o = new T.Mesh(g, m); o.receiveShadow = true; scene.add(o); return o;
   }
 
@@ -91,8 +93,27 @@ export function buildNavapur(C) {
       for (let r = 0; r <= 16; r++) x.fillRect(0, r * 32 - 2, w, band ? 6 : 3); for (let c = 0; c <= 4; c++) x.fillRect(c * 64 - 1, 0, 3, h);
     });
   }
-  const GLASS = [['#5b86a8', '#1d3348'], ['#6fa3a8', '#20393d'], ['#8a9db8', '#2a3550'], ['#4f6f8f', '#14202e']].map(t => new T.MeshStandardMaterial({map: glassTex(t), roughness: .24, metalness: .5, envMapIntensity: .8}));
+  // each curtain-wall style has its own colours and window pattern, so neighbouring towers never match
+  function styledGlass(top, low, frame, style) {
+    return ctex(256, 512, (x, w, h) => {
+      const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, top); g.addColorStop(1, low); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      for (let r = 0; r < 16; r++) for (let c = 0; c < 8; c++) { x.globalAlpha = .06 + R() * .2; x.fillStyle = R() < .5 ? '#ffffff' : '#000814'; x.fillRect(c * 32 + 2, r * 32 + 3, 28, 26) }
+      x.globalAlpha = 1; x.fillStyle = frame;
+      if (style === 'grid') { for (let r = 0; r <= 16; r++) x.fillRect(0, r * 32 - 2, w, 4); for (let c = 0; c <= 4; c++) x.fillRect(c * 64 - 2, 0, 4, h) }
+      else if (style === 'bands') { for (let r = 0; r <= 16; r += 1) x.fillRect(0, r * 32 - 5, w, 10); x.globalAlpha = .5; for (let c = 0; c <= 8; c++) x.fillRect(c * 32 - 1, 0, 2, h) }
+      else if (style === 'fins') { for (let c = 0; c <= 8; c++) x.fillRect(c * 32 - 4, 0, 8, h); x.globalAlpha = .45; for (let r = 0; r <= 16; r++) x.fillRect(0, r * 32 - 1, w, 2) }
+      else { for (let r = 0; r <= 16; r += 2) x.fillRect(0, r * 32 - 7, w, 14); for (let c = 0; c <= 2; c++) x.fillRect(c * 128 - 6, 0, 12, h) }
+      x.globalAlpha = 1;
+    });
+  }
+  const glassM = (top, low, frame, style, metal = .45) => new T.MeshStandardMaterial({map: styledGlass(top, low, frame, style), roughness: .26, metalness: metal, envMapIntensity: .85});
+  const GLASS = [glassM('#4f93c4', '#143452', '#1f2a36', 'grid', .55), glassM('#35b3a4', '#0f4a47', '#e8f2ef', 'fins'), glassM('#d9a25c', '#5a3416', '#3b2a1c', 'grid', .6),
+    glassM('#6b7890', '#1c2230', '#f0c14b', 'fins'), glassM('#d98a9c', '#5b2640', '#f6e9e4', 'bands'), glassM('#8fbf6a', '#22462a', '#f4f1e6', 'wide'),
+    glassM('#8f84d6', '#2b2360', '#dcd8f5', 'grid'), glassM('#f1ede4', '#b9b2a4', '#2f4858', 'wide', .15)];
   const OFFICE = new T.MeshStandardMaterial({map: glassTex(['#7fb0c4', '#2e4a5a'], 'rgba(225,228,230,.95)'), roughness: .3, metalness: .32});
+  const OFFICES = [glassM('#5fb7d4', '#1d4f6b', '#f4f7f8', 'bands'), glassM('#d8c8a8', '#8a6a48', '#6b3f2a', 'wide', .2), glassM('#58a889', '#17483a', '#e9efe9', 'fins'),
+    glassM('#e0775a', '#7a2f22', '#f7e6d8', 'bands', .25), glassM('#4a5a78', '#161d2c', '#7fe0d0', 'grid', .6)];
+  const CROWN = [0xf0b429, 0x18a999, 0xe4572e, 0x7b61ff, 0xf2f2ee].map(c => new T.MeshStandardMaterial({color: c, roughness: .45, metalness: .25, emissive: c, emissiveIntensity: .12}));
   const concrete = mat(0xc4bdb1, .9), darkConcrete = mat(0x6f6b65, .9), trimM = mat(0xe9e3d6, .8);
   const neonP = new T.MeshStandardMaterial({color: 0x9b4dff, emissive: 0x9b4dff, emissiveIntensity: 1.4}), neonB = new T.MeshStandardMaterial({color: 0x37b6ff, emissive: 0x37b6ff, emissiveIntensity: 1.4});
   const sandTex = ctex(256, 256, (x, w, h) => { x.fillStyle = '#c9b27f'; x.fillRect(0, 0, w, h); for (let i = 0; i < 9000; i++) { x.globalAlpha = .1 + R() * .25; x.fillStyle = ['#ad9563', '#dcc89a', '#9c8352'][i % 3]; x.fillRect(R() * w, R() * h, 2, 2) } x.globalAlpha = 1 });
@@ -191,29 +212,47 @@ export function buildNavapur(C) {
       if (R() < .3) { const [da, db] = W(0, d / 4); put(new T.CylinderGeometry(.5, .05, .25, 12, 1, true), white, da, H + 1.4, db, .6, ry, 0) }
     }
   }
+  const KIT = makeKit({scene, R}), RESERVED = [];
+  const reserved = (x, z, r) => RESERVED.some(q => Math.hypot(q.x - x, q.z - z) < q.r + r);
   function building(x, z, ry, w, d, floors, opts = {}) {
     { const c = placeClear(x, z, w + 1, d + 2.6, ry); if (!c) return; [x, z] = c }
-    const fh = 3.1, H = floors * fh + .2, fac = opts.fac || FACADE[Math.floor(R() * FACADE.length)];
-    put(boxUV(w, H, d, 16, 12.8), fac, x, H / 2, z, 0, ry, 0);
-    cube(darkConcrete, x, .15, z, w + .6, .3, d + .6, ry);
-    details(x, z, ry, w, d, .2, fh, floors, H, opts);
+    if (reserved(x, z, Math.max(w, d) / 2)) return;
+    const f = KIT.frame(x, z, (opts.front || 1) > 0 ? ry : ry + PI), roll = R();
+    let H;
+    if (roll > .82 && floors > 2) H = KIT.roundHall(f, Math.min(w, 13), Math.min(d + 1, 13), Math.min(floors - 1, 5));
+    else if (floors <= 3) H = roll < .62 || w < 9 ? KIT.house(f, Math.min(w, 13), Math.min(d, 11), 2) : KIT.townhouses(f, w, Math.min(d, 10), floors);
+    else if (roll < .34 && w >= 11) H = KIT.manor(f, w, Math.min(d, 13), Math.min(floors - 1, 4));
+    else if (roll < .6) H = KIT.townhouses(f, w, Math.min(d, 11), Math.min(floors, 4));
+    else H = KIT.apartments(f, w, d, floors - 1);
     addOColl(x, z, w + 1, d + 2.6, ry, H);
     ROOMS.push({x, z, ry, w, d, H});
   }
   // the old city's box buildings get the same detailing (they face their street: front = ±1 on z)
-  for (const L of LOTS) { details(L.x, L.z, 0, L.w, L.d, 4.25, 3.2, L.floors, L.H, {front: L.front});
-    const r = R();
-    if (r < .3 && L.w > 10) { const pw = L.w * rnd(.45, .6), pd = L.d * rnd(.45, .6), px = L.x + (L.w - pw) / 2 * (R() < .5 ? -1 : 1) * .8; put(boxUV(pw, 3.1, pd, 16, 12.8), FACADE[Math.floor(R() * FACADE.length)], px, L.H + 1.55, L.z); cube(trimM, px, L.H + 3.2, L.z, pw + .4, .35, pd + .4) }
-    else if (r < .5) { const sh = new T.Shape(); sh.moveTo(-L.d / 2 - .4, 0); sh.lineTo(0, Math.min(3.5, L.d * .3)); sh.lineTo(L.d / 2 + .4, 0); sh.closePath(); const gg = new T.ExtrudeGeometry(sh, {depth: L.w * .5, bevelEnabled: false}); gg.rotateY(PI / 2); gg.translate(-L.w * .25, 0, 0); const uv = gg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3); put(gg, roofTile, L.x - L.w * .2, L.H + .9, L.z) }
-  }
+  for (const L of LOTS) L.fresh ? KIT.newBlock(L) : KIT.oldCity(L);
   // tower with setbacks so the skyline isn't a set of plain boxes
   function tower(x, z, w, d, h, m, ry, opts = {}) {
     { const c = placeClear(x, z, w + 4, d + 4, ry); if (!c) return; [x, z] = c }
-    const h1 = h * .62, h2 = h * .26, h3 = h - h1 - h2;
-    put(boxUV(w + 3, 6, d + 3, 8, 4), concrete, x, 3, z, 0, ry, 0);
-    put(boxUV(w, h1, d, 16, 32), m, x, 6 + h1 / 2, z, 0, ry, 0); cube(trimM, x, 6 + h1 + .3, z, w + .8, .6, d + .8, ry);
-    put(boxUV(w * .82, h2, d * .82, 16, 32), m, x, 6 + h1 + h2 / 2, z, 0, ry, 0); cube(trimM, x, 6 + h1 + h2 + .3, z, w * .82 + .8, .6, d * .82 + .8, ry);
-    put(boxUV(w * .58, h3, d * .58, 16, 32), m, x, 6 + h1 + h2 + h3 / 2, z, 0, ry, 0);
+    if (reserved(x, z, Math.max(w, d) / 2)) return;
+    const h1 = h * .62, h2 = h * .26, h3 = h - h1 - h2, kind = opts.kind | 0, crown = CROWN[(opts.kind * 3 + Math.round(h)) % CROWN.length];
+    const C = Math.cos(ry), S = Math.sin(ry), at = (lx, lz) => [x + lx * C + lz * S, z - lx * S + lz * C];
+    put(boxUV(w + 3, 6, d + 3, 8, 4), concrete, x, 3, z, 0, ry, 0); cube(crown, x, 6.15, z, w + 3.4, .45, d + 3.4, ry);
+    if (kind === 1) { // round tower with sky-garden rings
+      const r = Math.min(w, d) / 2 + 1, g = new T.CylinderGeometry(r, r, h, 24, 1); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * Math.round(r * .4), uv.getY(i) * h / 32);
+      put(g, m, x, 6 + h / 2, z); for (const k of [.34, .67, 1]) put(new T.CylinderGeometry(r + .45, r + .45, .7, 24), k === 1 ? crown : trimM, x, 6 + h * k + .3, z);
+      put(new T.CylinderGeometry(r * .55, r * .7, 3, 24), crown, x, 6 + h + 2, z);
+    } else if (kind === 2) { // slim slab with a coloured spine and a sloped cap
+      put(boxUV(w, h, d * .72, 16, 32), m, x, 6 + h / 2, z, 0, ry, 0);
+      const [fx, fz] = at(w * .5 + .35, 0); cube(crown, fx, 6 + h * .55, fz, .9, h * 1.1, d * .5, ry);
+      cube(trimM, x, 6 + h + .3, z, w + .8, .6, d * .72 + .8, ry); const [cx2, cz2] = at(-w * .18, 0); put(boxUV(w * .55, 5, d * .6, 16, 32), m, cx2, 6 + h + 3, cz2, 0, ry, .12);
+    } else if (kind === 3) { // two offset blocks of different height, joined
+      const [ax, az] = at(-w * .22, 0), [bx2, bz2] = at(w * .27, d * .08);
+      put(boxUV(w * .56, h, d, 16, 32), m, ax, 6 + h / 2, az, 0, ry, 0); put(boxUV(w * .46, h * .72, d * .8, 16, 32), m, bx2, 6 + h * .36, bz2, 0, ry, 0);
+      cube(crown, ax, 6 + h + .5, az, w * .56 + .7, 1, d + .7, ry); cube(crown, bx2, 6 + h * .72 + .35, bz2, w * .46 + .6, .7, d * .8 + .6, ry);
+    } else { // stepped tower
+      put(boxUV(w, h1, d, 16, 32), m, x, 6 + h1 / 2, z, 0, ry, 0); cube(trimM, x, 6 + h1 + .3, z, w + .8, .6, d + .8, ry);
+      put(boxUV(w * .82, h2, d * .82, 16, 32), m, x, 6 + h1 + h2 / 2, z, 0, ry, 0); cube(trimM, x, 6 + h1 + h2 + .3, z, w * .82 + .8, .6, d * .82 + .8, ry);
+      put(boxUV(w * .58, h3, d * .58, 16, 32), m, x, 6 + h1 + h2 + h3 / 2, z, 0, ry, 0); cube(crown, x, 6 + h + .4, z, w * .58 + .7, .8, d * .58 + .7, ry);
+    }
     put(new T.CylinderGeometry(.25, .4, h * .1, 6), steel, x, 6 + h + h * .05, z);
     if (opts.neon) { const c = Math.cos(ry), s = Math.sin(ry); for (const e of [-1, 1]) cube(opts.neon, x + e * (w / 2 + .1) * c + (d / 2 + .1) * s, 6 + h1 / 2, z - e * (w / 2 + .1) * s + (d / 2 + .1) * c, .35, h1 * .9, .35, ry) }
     addOColl(x, z, w + 4, d + 4, ry, h); ROOMS.push({x, z, w: w + 4, d: d + 4});
@@ -246,13 +285,52 @@ export function buildNavapur(C) {
   const free = (x, z, r) => { for (const b of ROOMS) if (Math.hypot(b.x - x, b.z - z) < Math.max(b.w, b.d) / 2 + r) return false; return !nearRoad(x, z, r) };
   function treesIn(pts, n) { for (let i = 0; i < n * 4 && n > 0; i++) { const x = rnd(-500, 500), z = rnd(-470, 270); if (!inPoly(pts, x, z) || !free(x, z, 2)) continue; TREES.push([x, z, rnd(.8, 1.4)]); n-- } }
 
+  // ======================= LANDMARKS =======================
+  {
+    // nearest open ground to where we'd like it: clear of roads, the old city, the sea edge and other landmarks
+    const open = (x, z, r) => {
+      if (x > -185 - r && x < 185 + r && z > -185 - r) return false;
+      if (reserved(x, z, r + 3)) return false;
+      for (let a = 0; a < 6.28; a += .4) if (!inPoly(coast, x + Math.cos(a) * (r + 4), z + Math.sin(a) * (r + 4))) return false;
+      for (const L of DMAP.lines) for (const p of L.pts) if (Math.hypot(p[0] - x, p[1] - z) < r + L.w / 2 + 4) return false;
+      return true;
+    };
+    const place = (name, wantX, wantZ, r, halfW, halfD, make, ry) => {
+      for (let ring = 0; ring <= 130; ring += 5) for (let a = 0; a < 6.28; a += ring ? 5 / ring : 7) {
+        const x = wantX + Math.cos(a) * ring, z = wantZ + Math.sin(a) * ring;
+        if (!open(x, z, r)) continue;
+        // face the old city, which is where players come from
+        const face = ry !== undefined ? ry : Math.round(Math.atan2(-x, -z) / (PI / 2)) * (PI / 2);
+        // a paved square with flower beds and clipped hedges around every landmark
+        stampDisc(x, z, r + 1.5, .06); stampDisc(x, z, r - .5, .07);
+        { const g = KIT.frame(x, z, 0); g.cyl(r + 1.5, r + 1.5, .05, 0xd8c7a4, 0, .03, 0, 40); g.cyl(r - .5, r - .5, .05, 0xe8dcc0, 0, .045, 0, 40);
+          for (let a = 0; a < 6.28; a += 4.2 / r) { const lx = Math.sin(a) * (r + .6), lz = Math.cos(a) * (r + .6); if (Math.abs(((a - face + PI * 3) % (PI * 2)) - PI) < .35) continue; g.ball(.75, 0x4c9a3a, lx, .5, lz); if (R() < .4) g.ball(.3, [0xff6f91, 0xffd23f, 0xb98cff][Math.floor(R() * 3)], lx, 1.2, lz) } }
+        const H = make(KIT.frame(x, z, face), x, z, face) || 8;
+        RESERVED.push({x, z, r}); ROOMS.push({x, z, w: r * 2, d: r * 2}); if (halfW) addOColl(x, z, halfW * 2, halfD * 2, face, H);
+        if (name) label(name, x, z);
+        return;
+      }
+      console.warn('no room for', name);
+    };
+    place('Clock Tower', -230, -175, 21, 18, 7, f => KIT.clockTower(f));
+    place('City Hall', -60, -225, 16, 11, 9, f => KIT.civic(f, 20, 16));
+    place('Stadium', -300, -300, 31, 29, 23.5, f => KIT.stadium(f), 0);
+    place('Giant Wheel', -245, 60, 14, 7, 3, (f, x, z, face) => { KIT.ferrisWheel(x, z, face, TICK); return 34 });
+    place('Pagoda Market', 255, -95, 16, 13, 9, f => KIT.market(f));
+    place('Grand Museum', -250, -60, 17, 12, 10, f => KIT.civic(f, 22, 18));
+    place('Royal Hall', 250, -250, 18, 15, 8, f => KIT.manor(f, 28, 14, 3));
+    place('Rose Garden', -215, -120, 12, 0, 0, f => KIT.fountainGarden(f));
+    place('', 245, 60, 12, 0, 0, f => KIT.fountainGarden(f));
+    place('', -230, 25, 15, 13, 6, f => KIT.manor(f, 24, 11, 2));
+  }
+
   // ======================= CITY CENTRE (CBD) =======================
   {
     const zone = blob(-40, -350, 125, 88, .18); area(zone, paved, 3, .02, '#7d8fa8'); label('City Center (CBD)', -60, -350);
     const cx = -40, cz = -350;
     const spots = [[-140, -300, 22, 22, 70], [-112, -318, 18, 26, 95], [-150, -352, 20, 18, 55], [-112, -385, 24, 20, 120], [-128, -420, 22, 22, 80],
       [-72, -300, 20, 20, 140], [-68, -410, 26, 22, 105], [32, -296, 22, 20, 65], [58, -340, 20, 26, 100], [36, -395, 22, 22, 130], [74, -405, 16, 16, 60], [-20, -430, 18, 18, 75]];
-    spots.forEach(([x, z, w, d, h], i) => tower(x + rnd(-4, 4), z + rnd(-4, 4), w, d, h * .5, GLASS[i % 4], rnd(-.45, .45), {neon: i % 3 === 0 ? (i % 2 ? neonB : neonP) : null}));
+    spots.forEach(([x, z, w, d, h], i) => tower(x + rnd(-4, 4), z + rnd(-4, 4), w, d, h * .5, GLASS[(i * 3) % GLASS.length], rnd(-.45, .45), {kind: i % 4, neon: i % 6 === 0 ? (i % 12 ? neonB : neonP) : null}));
     put(new T.CylinderGeometry(22, 22, .3, 40), paved, cx, .15, cz); put(new T.CylinderGeometry(9, 9.5, .9, 32), stone, cx, .55, cz);
     const wtr = new T.Mesh(new T.CylinderGeometry(8.6, 8.6, .1, 32), seaMat); wtr.position.set(cx, 1, cz); scene.add(wtr); put(new T.CylinderGeometry(.6, 1, 3, 12), stone, cx, 2.2, cz);
     const jet = new T.Mesh(new T.ConeGeometry(1.2, 6, 12, 1, true), new T.MeshStandardMaterial({color: 0xdff4ff, transparent: true, opacity: .45, roughness: .1})); jet.position.set(cx, 6.5, cz); scene.add(jet);
@@ -265,8 +343,8 @@ export function buildNavapur(C) {
   // ======================= IT PARK =======================
   {
     const zone = blob(180, -360, 70, 82, .2, 28, .3); area(zone, grass, 6, .018, '#5f8fa0'); label('IT Park', 180, -360);
-    [[150, -315, 34, 18, 34], [215, -318, 30, 18, 42], [150, -372, 30, 22, 48], [215, -380, 34, 20, 30], [168, -425, 28, 18, 38]].forEach(([x, z, w, d, h]) => {
-      h *= .7; const ry = rnd(-.6, .6); { const c = placeClear(x, z, w + 1, d + 1, ry); if (!c) return; [x, z] = c } put(boxUV(w, h, d, 16, 32), OFFICE, x, h / 2, z, 0, ry, 0); cube(trimM, x, h + .3, z, w + .6, .6, d + .6, ry); cube(white, x, h * .5, z, w + .3, .35, d + .3, ry); addOColl(x, z, w + 1, d + 1, ry, h); ROOMS.push({x, z, w, d}) });
+    [[150, -315, 34, 18, 34], [215, -318, 30, 18, 42], [150, -372, 30, 22, 48], [215, -380, 34, 20, 30], [168, -425, 28, 18, 38]].forEach(([x, z, w, d, h], bi) => {
+      h *= .7; const ry = rnd(-.6, .6); { const c = placeClear(x, z, w + 1, d + 1, ry); if (!c) return; [x, z] = c } const skin = OFFICES[bi % OFFICES.length], cap = CROWN[bi % CROWN.length]; put(boxUV(w, h, d, 16, 32), skin, x, h / 2, z, 0, ry, 0); cube(cap, x, h + .4, z, w + .8, .8, d + .8, ry); if (bi % 2) put(boxUV(w * .6, 7, d * .7, 16, 32), skin, x, h + 4, z, 0, ry, 0); else cube(white, x, h * .5, z, w + .3, .35, d + .3, ry); cube(cap, x, 2.2, z, w + 1.1, .5, d + 1.1, ry); addOColl(x, z, w + 1, d + 1, ry, h); ROOMS.push({x, z, w, d}) });
     const s = sign('Startup IT Park', '#127a5a', '#fff', 1.8, .7); s.position.set(150, 4, -296); s.rotation.y = -.5; scene.add(s); treesIn(zone, 50);
   }
 
@@ -310,7 +388,7 @@ export function buildNavapur(C) {
     let n = 0;
     for (let i = 0; i < 4000 && n < (LOW ? 500 : 1100); i++) {
       const x = rnd(170, 240), z = rnd(-150, 110); if (!inPoly(zone, x, z) || Math.abs(x - 205 - Math.sin(z * .05) * 6) < 1.8) continue;
-      const h = rnd(2.4, 3.6) * (R() < .22 ? 1.7 : 1), ry = rnd(-.5, .5), sx = rnd(2.4, 3.2), sz = rnd(2.6, 3.4); if (hitsRoad(x, z, sx, sz, ry, 1.5)) continue;
+      const h = rnd(2.4, 3.6) * (R() < .22 ? 1.7 : 1), ry = rnd(-.5, .5), sx = rnd(2.4, 3.2), sz = rnd(2.6, 3.4); if (hitsRoad(x, z, sx, sz, ry, 1.5) || reserved(x, z, 2.5)) continue;
       o.position.set(x, h / 2, z); o.scale.set(sx, h, sz); o.rotation.set(0, ry, 0); o.updateMatrix(); hm.setMatrixAt(n, o.matrix); hm.setColorAt(n, new T.Color(cols[n % cols.length]));
       o.position.y = h + .05; o.scale.set(sx + .5, 1, sz + .5); o.rotation.set(rnd(-.06, .06), ry, rnd(-.08, .08)); o.updateMatrix(); tm.setMatrixAt(n, o.matrix); tm.setColorAt(n, new T.Color(R() < .6 ? 0x2f6fd0 : (R() < .5 ? 0x8d8d8d : 0xb44a3a))); n++;
       addOColl(x, z, sx, sz, ry, h);
@@ -505,7 +583,7 @@ export function buildNavapur(C) {
     // ---- ground: paved plaza around it
     area(blob(CX + 7, CZ, 31, 23, .1), paved, 3, .035);
     // ---- floor, walls, ceiling
-    { const g = boxUV(CW, .08, CD, 4, 4); put(g, plankM, CX, .04, CZ) }
+    { const g = boxUV(CW, .08, CD, 4, 4); put(g, plankM, CX, .04, CZ) } stampRect(CX - CW / 2, CX + CW / 2, CZ - CD / 2, CZ + CD / 2, .08);
     cube(cream, x0 + .3, WH / 2, CZ, .6, WH, CD); addColl(x0, x0 + .6, z0, z1, WH);
     { const p = new T.PlaneGeometry(CD - 1.2, WH - .2); const uv = p.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 5, uv.getY(i) * 1.3); put(p, brickM, x0 + .62, WH / 2, CZ, 0, PI / 2, 0) } // exposed brick inside
     for (const zz of [z0 + .3, z1 - .3]) { cube(cream, CX, WH / 2, zz, CW, WH, .6); addColl(x0, x1, zz - .3, zz + .3, WH); cube(wood, CX, .55, zz + (zz < CZ ? .32 : -.32), CW - 1.4, 1.1, .06) } // + wood wainscot
@@ -601,12 +679,37 @@ export function buildNavapur(C) {
   addColl(-172, 186, 170.6, 700, 4); addColl(186, 480, 268, 700, 4); addColl(480, 500, 166, 700, 4);
 
   buildKerbs();
-  flush();
+  flush(); KIT.flush();
 }
 
-// ground height outside the old-city core: everything new is built at y = 0
+// Walking height outside the old-city core. Roads, pavements and squares sit a few centimetres above zero, so their
+// tops are written into a half-metre grid and characters stand on what they can see (not inside it).
+const GX = -520, GZ = -490, CELL = .5, GW = 2080, GH = 1600;
+const heights = new Uint8Array(GW * GH); // centimetres
+function stampTriangle(ax, az, bx, bz, cx, cz, cm) {
+  const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz); if (Math.abs(det) < 1e-9) return;
+  const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - GX) / CELL)), i1 = Math.min(GW - 1, Math.floor((Math.max(ax, bx, cx) - GX) / CELL));
+  const j0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - GZ) / CELL)), j1 = Math.min(GH - 1, Math.floor((Math.max(az, bz, cz) - GZ) / CELL));
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const x = GX + (i + .5) * CELL, z = GZ + (j + .5) * CELL;
+    const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / det, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / det;
+    if (u >= -.02 && v >= -.02 && u + v <= 1.02 && cm > heights[j * GW + i]) heights[j * GW + i] = cm;
+  }
+}
+function stampGeometry(g, y) {
+  if (y <= 0 || y > .3) return; // raised places (fort, bridges) have their own rules below
+  const p = g.attributes.position, idx = g.index, n = idx ? idx.count : p.count, at = k => idx ? idx.getX(k) : k;
+  for (let k = 0; k + 2 < n; k += 3) { const a = at(k), b = at(k + 1), c = at(k + 2); stampTriangle(p.getX(a), p.getZ(a), p.getX(b), p.getZ(b), p.getX(c), p.getZ(c), Math.round(y * 100)) }
+}
+function stampDisc(x, z, r, y) { for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2, b = (k + 1) / 24 * Math.PI * 2; stampTriangle(x, z, x + Math.cos(a) * r, z + Math.sin(a) * r, x + Math.cos(b) * r, z + Math.sin(b) * r, Math.round(y * 100)) } }
+function stampRect(x0, x1, z0, z1, y) { const cm = Math.round(y * 100); stampTriangle(x0, z0, x1, z0, x1, z1, cm); stampTriangle(x0, z0, x1, z1, x0, z1, cm) }
+function surfaceHeight(x, z) {
+  const i = Math.floor((x - GX) / CELL), j = Math.floor((z - GZ) / CELL);
+  return i < 0 || j < 0 || i >= GW || j >= GH ? 0 : heights[j * GW + i] / 100;
+}
+
 export function navapurGround(x, z) {
   if (Math.hypot(x + 430, z - 215) < 54) return 2.05;
   if (x > -382 && x < -356 && z > 181 && z < 189) return 1.12;
-  return x < -172 || x > 172 || z < -172 ? 0 : null;
+  return x < -172 || x > 172 || z < -172 ? surfaceHeight(x, z) : null;
 }

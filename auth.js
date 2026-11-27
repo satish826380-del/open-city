@@ -1,6 +1,5 @@
-// Login: guest (Supabase anonymous sign-in) or Google. One shared Supabase client for the whole game.
-// Needs (Supabase dashboard): Authentication > Sign In / Providers > "Anonymous sign-ins" ON, and the Google
-// provider ON with a Google OAuth client. Add this site's URL under Authentication > URL Configuration.
+// Login: email + password. One shared Supabase client for the whole game.
+// Needs (Supabase dashboard): Authentication > Sign In / Providers > Email ON. Add this site's URL under Authentication > URL Configuration.
 import {NET} from './net-config.js?v=3';
 
 let clientP = null;
@@ -31,18 +30,23 @@ export async function currentUser() {
 export function onAuth(cb) {
   getSupa().then(s => { if (s) s.auth.onAuthStateChange((ev, session) => cb(describe(session), ev)) });
 }
-export async function loginGuest() {
-  const s = await getSupa(); if (!s) throw new Error('Supabase is not set up (net-config.js)');
-  const {data, error} = await s.auth.signInAnonymously();
-  if (error) throw new Error(/anonymous/i.test(error.message) ? 'Guest login is off: turn on Anonymous sign-ins in Supabase' : error.message);
-  return describe(data.session);
+// admin approval (supabase/players.sql): 'approved', 'pending', 'blocked', 'login' or 'error'
+export async function playerStatus(name) {
+  const s = await getSupa(); if (!s) return 'approved';
+  const {data, error} = await s.rpc('sc_join', {p_name: String(name || '')});
+  if (!error) return data;
+  // approval has not been set up in the database yet
+  if (error.code === 'PGRST202' || /could not find the function/i.test(error.message)) return 'approved';
+  return 'error';
 }
-export async function loginGoogle() {
-  const s = await getSupa(); if (!s) throw new Error('Supabase is not set up (net-config.js)');
-  const redirectTo = location.origin + location.pathname; // come back to the game page
-  const {error} = await s.auth.signInWithOAuth({provider: 'google', options: {redirectTo}});
-  if (error) throw new Error(/provider is not enabled|Unsupported provider/i.test(error.message) ? 'Google login is off: turn on the Google provider in Supabase' : error.message);
+
+// only decides whether to show the admin button; the database refuses everything else from non-admins
+export async function isAdmin() {
+  const s = await getSupa(); if (!s) return false;
+  const {data, error} = await s.rpc('sc_is_admin');
+  return !error && data === true;
 }
+
 export async function logout() { const s = await getSupa(); if (s) await s.auth.signOut() }
 
 // ---- email + password ----

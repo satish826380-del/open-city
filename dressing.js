@@ -49,6 +49,7 @@ export function dressCity(C) {
   const MURALS = [new T.MeshStandardMaterial({map: muralCanvas('Startup City', 20), roughness: .8}), new T.MeshStandardMaterial({map: muralCanvas('Startup City', 280), roughness: .8}), new T.MeshStandardMaterial({map: muralCanvas('Startup City', 200), roughness: .8})];
   const pots = [];
   LOTS.forEach((L, i) => {
+    if (L.fresh) return;
     const f = L.front, zf = L.z + f * (L.d / 2);
     put(BOX, stripes[i % stripes.length], L.x, 3.9, zf + f * 1.05, f * .3, 0, 0, L.w - 1, .06, 2.2);                  // awning
     for (let x = L.x - L.w / 2 + 2; x < L.x + L.w / 2 - 1; x += 5.5) pots.push([x, zf + f * 2.6]);

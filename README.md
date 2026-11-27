@@ -34,13 +34,13 @@ Deploys as a static site (e.g. Vercel: `vercel.json` is included, no build comma
 
 ## Accounts
 
-Start screen: **Log in / Sign up** with email and password, **Continue with Google**, or play as a **Guest**.
+Start screen: **Log in / Sign up** with email and password. An account is needed to enter the city.
 Supabase sends a confirmation email after sign up (Authentication > Sign In / Providers > Email: "Confirm email").
 
 ## Multiplayer
 
 Movement is peer-to-peer over WebRTC ([Trystero](https://github.com/dmotz/trystero)) in 50 m grid cells; Supabase is only used for login
-(guest or Google), presence (online count, instances of 40 per area) and a 1 update/s fallback when WebRTC fails.
+(email), presence (online count, instances of 40 per area) and a 1 update/s fallback when WebRTC fails.
 Settings are in `net-config.js` (project URL + **publishable** key; leave empty to play offline). Never put a `service_role` key there.
 Details and test steps: `PHASE-1.md`, `PHASE-2.md`.
 
@@ -56,6 +56,7 @@ if a file is missing the built-in procedural animation is used.
 |---|---|
 | `game.js` | Core game: renderer, old city, people, traffic, jobs, phone, map, main loop |
 | `navapur.js` | The island, coastline, curvy roads and all districts |
+| `citykit.js` | Houses, townhouses, brick halls, apartments and landmarks (clock tower, stadium, wheel, market) |
 | `dressing.js` | Street dressing: Hindi signs, awnings, bollards, benches, murals, fort gate, station, clouds |
 | `facades.js` | 20 facade textures (wall colours x window styles) |
 | `trees.js` | Neem / gulmohar / jacaranda trees (branches + leaf cards) |
@@ -75,9 +76,28 @@ if a file is missing the built-in procedural animation is used.
 
 - Players pick a **role** (Founder, Co-founder, Developer, Designer, Marketer, Product, Investor, Mentor, Student, Job seeker, Explorer) on the start screen or in the phone's **Profile** app. It shows on their name tag.
 - Phone apps: **Profile** (role, startup, pitch, stage, skills, looking for, LinkedIn), **Nearby** (players around you: Connect, Chat, Meet, Wave), **Network** (requests and connections), **Chats** (private messages, live), **Café** (GPS to the Startup Café), **Billboard**.
-- Data is in Supabase tables `sc_profiles`, `sc_connections`, `sc_messages` (row-level security: you only see your own connections and chats; guests can browse but need email/Google login to connect or chat).
+- Data is in Supabase tables `sc_profiles`, `sc_connections`, `sc_messages` (row-level security: you only see your own connections and chats; login needed).
 
 ### Putting a startup on the billboards
 
 The billboards by the Startup Café and in the City Center show the active rows of the `sc_billboard` table, rotating every 9 seconds.
 In the Supabase dashboard: **Table Editor → sc_billboard → Insert row**, fill `title` (max 40), `tagline` (max 90), optional `url`, optional `image_url` (a logo, must allow cross-origin loading), colours `bg` / `fg` (like `#141414`), `sort` (order) and `active`. Players cannot edit this table.
+
+## Numbered billboard spots
+
+100 spots (positions in `spots.js`): big billboards 01-10 and 51-60, small street-lamp boards 11-50 and 61-100.
+Players tap or click a board to see it large and open the startup's website.
+Players press **E** at a free board, or open the phone's **Billboard** app, and send a request.
+An admin approves it, picks the spot, moves or removes it at `/admin` (`admin.html`; the game has no link to it).
+
+Set up once: run `supabase/billboards.sql` in the Supabase SQL Editor, add your admin user under
+**Authentication > Users**, then run the commented `insert into public.sc_admins` line with that email.
+Row-level security does the protecting: players can only create their own pending request.
+
+## Player approval
+
+Run `supabase/players.sql` after `billboards.sql`. New accounts then wait until an admin approves them under
+**Players** on `/admin.html`. Nothing is locked while there is no admin. The game's screen enforces this and the
+database blocks unapproved accounts from profiles, connections, messages and billboard requests.
+No Vercel environment variables are needed.
+An admin logs in on the game's normal Account tab; an **Admin panel** button then appears there and in the menu.

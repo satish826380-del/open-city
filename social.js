@@ -91,6 +91,21 @@ export function initSocial(G) {
       .subscribe();
   }
 
+  // ---------- numbered billboard spots (supabase/billboards.sql; row-level security decides what is allowed) ----------
+  const COLS = 'id,spot,startup,tagline,url,status';
+  api.spots = async () => { const s = await sb(); if (!s) return []; const {data, error} = await s.from('sc_spot_requests').select(COLS).eq('status', 'approved'); return error ? [] : data || [] };
+  api.myRequests = async () => { const s = await sb(); if (!s || !S.uid) return []; const {data, error} = await s.from('sc_spot_requests').select(COLS).eq('user_id', S.uid).order('id', {ascending: false}).limit(5); return error ? [] : data || [] };
+  api.requestSpot = async ({spot, startup, tagline, url}) => {
+    mustReal(); const s = await sb();
+    startup = String(startup || '').trim().slice(0, 28); tagline = String(tagline || '').trim().slice(0, 60); url = String(url || '').trim().slice(0, 120);
+    if (startup.length < 2) throw new Error('Enter your startup name');
+    if (url && !/^https:\/\/[^\s<>"]+$/i.test(url)) throw new Error('The website must start with https://');
+    const {error} = await s.from('sc_spot_requests').insert({spot, startup, tagline, url});
+    if (error && /spot_check|violates check/i.test(error.message) && +spot > 50) throw new Error('Spots above 50 are not switched on in the database yet');
+    if (error) throw new Error(/sc_spot_one_pending|duplicate/i.test(error.message) ? 'You already have a request waiting' : /does not exist|schema cache/i.test(error.message) ? 'Billboard requests are not switched on yet' : error.message);
+  };
+  api.cancelRequest = async id => { const s = await sb(); const {error} = await s.from('sc_spot_requests').delete().eq('id', id); if (error) throw new Error(error.message) };
+
   // ---------- billboard ----------
   api.billboard = async () => { const s = await sb(); if (!s) return []; const {data} = await s.from('sc_billboard').select('title,tagline,url,image_url,bg,fg').eq('active', true).order('sort').limit(20); return data || [] };
 

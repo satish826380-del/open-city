@@ -76,6 +76,38 @@ function pick(u, spd) {
   return 'idle';
 }
 const LOCO = {walk: 1, run: 1};
+// ---- men's run: a hand-keyed running cycle (forward lean, high knee, heel kick, bent pumping arms) in place of the clip.
+// One leg over a full cycle, from the moment its foot lands: [time, hip, knee, foot]. Negative hip = thigh forward.
+const RUN_KEYS = [[0, -.5, .3, -.1], [.13, -.08, .7, 0], [.28, .5, .35, .6], [.42, .42, 1.45, .5], [.57, -.2, 2.05, .2], [.72, -1.05, 1.65, 0], [.87, -.95, .65, -.18]];
+function runLeg(t, c) {
+  const K = RUN_KEYS, n = K.length; t -= Math.floor(t);
+  let i = n - 1; while (i > 0 && K[i][0] > t) i--;
+  const p1 = K[i], p2 = K[(i + 1) % n], p0 = K[(i + n - 1) % n], p3 = K[(i + 2) % n];
+  const k = (t - p1[0]) / (((p2[0] - p1[0]) + 1) % 1 || 1), k2 = k * k, k3 = k2 * k; // Catmull-Rom between keys
+  return .5 * (2 * p1[c] + (p2[c] - p0[c]) * k + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * k2 + (3 * p1[c] - p0[c] - 3 * p2[c] + p3[c]) * k3);
+}
+const turn = (o, x, y, z, k) => o.quaternion.slerp(_q.setFromEuler(_e.set(x, y, z)), k);
+function runPose(u, speed, dt, w) {
+  const m = u.mx;
+  m.rw = (m.rw || 0) + ((m.cur === 'run' ? 1 : 0) - (m.rw || 0)) * Math.min(1, dt * 8);
+  m.rp = ((m.rp || 0) + dt * (1.05 + Math.min(speed, 10) * .065)) % 1; // strides per second rise with speed
+  const k = m.rw * w; if (k <= .001) return;
+  const p = m.rp, TAU = Math.PI * 2;
+  for (const L of u.legs) {
+    const t = p + (L.s > 0 ? 0 : .5);
+    turn(L.hp, runLeg(t, 1), 0, L.s * .02, k); turn(L.kn, Math.max(0, runLeg(t, 2)), 0, 0, k); if (L.ft) turn(L.ft, runLeg(t, 3), 0, 0, k);
+  }
+  for (const A of u.arms) { // each arm swings against the leg on its own side
+    const c = Math.cos(TAU * (p + (A.s > 0 ? 0 : .5) - .76));
+    turn(A.sh, .05 + .82 * c, 0, A.s * .13, k); turn(A.el, -1.5 + .32 * c, 0, 0, k);
+  }
+  const s = Math.sin(TAU * p);
+  turn(u.hips, .08, -.09 * s, .025 * s, k); turn(u.spine, .2, .2 * s, 0, k); turn(u.head, -.2, -.1 * s, 0, k);
+  // lowest as the weight lands on a foot, highest while both feet are off the ground
+  const y = .9 - .05 * Math.cos(2 * TAU * (p - .13));
+  u.hips.position.x += (0 - u.hips.position.x) * k; u.hips.position.y += (y - u.hips.position.y) * k; u.hips.position.z += (0 - u.hips.position.z) * k;
+}
+
 // Pose the rig from the clips. w = how much mocap to use (0 while sitting, so the bench pose stays procedural).
 export function mocapPose(u, speed, dt, w) {
   if (!MX.ready || w <= .001) return false;
@@ -106,5 +138,6 @@ export function mocapPose(u, speed, dt, w) {
   u.hips.position.x += (PA.x * .25 - u.hips.position.x) * w;
   u.hips.position.y += (.95 + PA.y - u.hips.position.y) * w;
   u.hips.position.z += (PA.z - u.hips.position.z) * w;
+  if (u.male) runPose(u, speed, dt, w);
   return true;
 }

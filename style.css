@@ -51,15 +51,9 @@ button[aria-pressed=true]{background:var(--t);color:#fff}
 #bigmap{width:100%;aspect-ratio:1;border-radius:12px;background:#222;display:block}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .8s;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800}
 #fade.on{opacity:1}
-#start{position:fixed;left:0;top:0;bottom:0;width:min(420px,100vw);background:linear-gradient(90deg,rgba(14,14,14,.94),rgba(14,14,14,.82));border-right:3px solid var(--y);padding:22px;overflow:auto}
-#start h1{margin:0;font-size:clamp(36px,6vw,50px);line-height:1.05;color:var(--y)}
-#start p{margin:6px 0 12px}
-#start label{display:block;font-weight:700;margin-top:10px;font-size:15px}
-#start input{width:100%;min-height:44px;border-radius:12px;border:2px solid #555;background:#222;color:#fff;padding:6px 12px;font-size:16px}
 .sw{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .sw button{width:40px;height:40px;min-height:40px;padding:0;border-radius:50%;border:3px solid #444}
 .sw button[aria-pressed=true]{border-color:var(--y);box-shadow:0 0 0 2px var(--k) inset}
-#start ul{padding-left:18px;margin:10px 0;font-size:14px}
 kbd{background:#333;border-radius:6px;padding:0 6px;font:600 13px system-ui}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0b1424;font-size:22px;font-weight:800;color:var(--y);text-align:center;padding:20px}
 #loading[hidden]{display:none}
@@ -76,7 +70,6 @@ body.photo #photoTip{display:block}
  #hint{bottom:160px}#chai{bottom:170px}#speedo{bottom:170px}
  #mini{width:110px;height:110px}#phoneBtn{top:130px}#mapBtn{top:182px}.mtip{display:none}
 }
-@media(max-width:600px){#start{width:100vw;background:rgba(14,14,14,.9)}}
 @media(prefers-reduced-motion:reduce){#phone,#toast,#fade{transition:none}}
 
 /* game-style HUD: avatar portrait, chunky bars, level badge */
@@ -126,7 +119,6 @@ body.creating #chat,body.creating #chatBtn{display:none}
 .lgb{display:flex;gap:8px;flex-wrap:wrap}
 .lgb button{flex:1 1 130px;min-height:44px;border-radius:12px;border:2px solid #555;background:#222;color:#fff;font:700 15px inherit;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .lgb button:hover{border-color:var(--y)}
-#lgGoogle{background:#fff;color:#1f1f1f;border-color:#dadce0}
 #lgErr{color:#ff8a80;font-size:13px;margin-top:6px;min-height:0}
 #lgErr:empty{display:none}
 .lgb button[hidden]{display:none}
@@ -232,13 +224,9 @@ body.creating #menuBtn,body.photo #menuBtn{display:none}
 .msgform{display:flex;gap:6px;margin-top:6px}
 .msgform input{flex:1;min-width:0;background:#10131a;color:#fff;border:1px solid #333a46;border-radius:999px;padding:8px 12px;font:inherit;font-size:14px}
 .msgform button{width:40px;min-height:40px;padding:0;border-radius:50%;font-size:16px}
-#start .rsw{margin-bottom:4px}
 body.phoneOn #menuBtn{display:none}
 body.mapOn #menuBtn{display:none}
 /* continue / install buttons on the start screen */
-#start .cont{width:100%;min-height:52px;margin:6px 0 4px;font-size:18px;font-weight:800;background:linear-gradient(135deg,#ffd21f,#ffb020);color:#141414;border:0;border-radius:14px;box-shadow:0 6px 18px rgba(255,210,31,.25)}
-#start .cont[hidden],#start .install[hidden],#pmInstall[hidden]{display:none}
-#start .install{width:100%;min-height:42px;margin:4px 0 6px;font-size:15px;font-weight:700;background:#1b1f27;color:#fff;border:2px solid #3a4150;border-radius:12px}
 /* character loading overlay: centred in the space right of the start panel */
 #charLoad{position:fixed;top:0;bottom:0;right:0;left:min(420px,100vw);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:4}
 #charLoad[hidden]{display:none}
@@ -256,3 +244,184 @@ body:not(.creating) #charLoad{left:0}
 #iosTip[hidden]{display:none}
 #iosTip .pm{width:min(340px,calc(100vw - 32px));background:rgba(18,18,20,.97);border:3px solid var(--y);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:10px}
 #iosTip h2{margin:0;color:var(--y);text-align:center}
+
+/* ===== start screen: character creator ===== */
+#start{--bg:rgba(7,30,36,.86);--bg2:rgba(255,255,255,.06);--line:rgba(94,234,212,.28);--acc:#2dd4bf;--pick:#ff7a59;--ink:#eafffb;
+ position:fixed;inset:0;display:grid;gap:12px;padding:12px;padding-bottom:max(12px,env(safe-area-inset-bottom));color:var(--ink);overflow:hidden;
+ grid-template-columns:clamp(230px,23vw,330px) minmax(0,1fr) clamp(260px,29vw,400px);grid-template-rows:auto auto minmax(0,1fr) auto;
+ grid-template-areas:"top top top" "left stage tabs" "left stage panel" "left stage go";
+ background:linear-gradient(90deg,rgba(4,22,30,.55),transparent 30%,transparent 65%,rgba(4,22,30,.55))}
+.s-top{grid-area:top;display:flex;align-items:center;gap:8px;min-width:0}
+.s-logo{margin-right:auto;font-weight:800;font-size:clamp(24px,3.4vw,40px);line-height:1;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.6);white-space:nowrap}
+.s-logo span{color:var(--acc)}.s-logo b{margin-left:6px;font-size:.7em}
+#start .s-chip{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:999px;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);font-weight:800;font-size:15px;white-space:nowrap}
+#start .install{min-height:40px;padding:0 12px;border-radius:999px;background:var(--bg);border:1.5px solid var(--pick);color:#fff;font-size:14px}
+.s-left{grid-area:left;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.s-card,.s-right{background:var(--bg);border:1.5px solid var(--line);border-radius:18px;backdrop-filter:blur(8px);box-shadow:0 10px 30px rgba(0,0,0,.28)}
+.s-card{padding:10px 12px;flex:none}
+#start h2{margin:0 0 6px;font-size:15px;color:var(--acc)}
+#start label{display:block;font-weight:700;margin:10px 0 4px;font-size:14px}
+#start .s-card label{margin-top:0;color:var(--acc);font-size:15px}
+#start input{width:100%;min-height:44px;border-radius:12px;border:1.5px solid var(--line);background:rgba(0,0,0,.3);color:#fff;padding:6px 12px;font:700 16px "Baloo 2",sans-serif}
+.s-gender{display:flex;gap:8px;margin-top:8px}
+#start .s-gender button{flex:1;min-height:46px;background:var(--bg2);border:1.5px solid var(--line);color:var(--ink);font-size:15px}
+#start .s-gender button[aria-pressed=true]{border-color:var(--acc);background:rgba(45,212,191,.24);box-shadow:0 0 14px rgba(45,212,191,.45)}
+.s-who{display:flex;gap:10px;align-items:center}.s-who>div{flex:1;min-width:0}
+#sFace{width:68px;height:68px;flex:none;object-fit:cover;object-position:50% 6%;border-radius:16px;border:2px solid var(--acc);background:radial-gradient(circle at 50% 30%,#2b6a70,#0d2b33);box-shadow:0 0 14px rgba(45,212,191,.35)}
+#sFace[hidden],#start.female .s-looks,#start.female #sFace{display:none}
+.s-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+#start .s-presets button{position:relative;min-height:0;padding:0;aspect-ratio:2/3;overflow:hidden;border:2px solid var(--line);border-radius:12px;background:linear-gradient(180deg,#2c6d73,#12343d 70%,#0b2229);transition:transform .15s,box-shadow .15s}
+#start .s-presets button:hover{transform:translateY(-2px);border-color:var(--acc)}
+.s-presets img{position:absolute;left:50%;top:2px;height:112%;transform:translateX(-50%);pointer-events:none}
+.s-presets i{display:block}
+.s-presets span{position:absolute;left:0;right:0;bottom:0;padding:9px 0 2px;font-size:11px;font-weight:800;line-height:1.2;color:#fff;background:linear-gradient(transparent,rgba(3,18,22,.92) 55%)}
+#start .s-presets button[aria-pressed=true]{border-color:var(--pick);box-shadow:0 0 0 1px var(--pick),0 0 16px rgba(255,122,89,.6)}
+#start .s-presets button[aria-pressed=true]::after{content:"✓";position:absolute;top:3px;right:3px;width:17px;height:17px;border-radius:50%;background:var(--pick);color:#2a0b05;font:900 12px/17px sans-serif}
+#start .rsw{margin:0}
+#start .rsw button{background:var(--bg2);border-color:var(--line);color:var(--ink)}
+#start .rsw button[aria-pressed=true]{background:var(--rc);border-color:var(--rc);color:#111}
+.s-stage{grid-area:stage;position:relative;min-height:0;touch-action:none;cursor:grab}
+.s-ring{position:absolute;left:50%;bottom:3%;width:min(240px,70%);aspect-ratio:4/1;transform:translateX(-50%);border:2.5px solid var(--acc);border-radius:50%;box-shadow:0 0 18px var(--acc);opacity:.75;pointer-events:none}
+.s-stage.zoomed .s-ring{display:none}
+.s-tools{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+#start .s-tools button{width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);font-size:20px}
+.s-tabs{grid-area:tabs;display:flex;gap:6px}
+#start .s-tabs button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54px;padding:3px;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);font-size:13px;line-height:1.2}
+.s-tabs i{font-style:normal;font-size:18px}
+#start .s-tabs button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#04211f;box-shadow:0 0 16px rgba(45,212,191,.5)}
+#start .s-tabs button[data-t=me]{display:none}
+.s-right{grid-area:panel;min-height:0;overflow:auto;padding:6px 14px 14px}
+.s-pane{display:none}
+#start[data-tab=look] [data-p=look],#start[data-tab=outfit] [data-p=outfit],#start[data-tab=account] [data-p=account],#start[data-tab=me] [data-p=look]{display:block}
+#start .sw button{width:42px;height:42px;min-height:42px;border-radius:12px;border:2px solid rgba(255,255,255,.18)}
+#start .sw button[style*="width:auto"]{width:auto!important;background:var(--bg2)!important;color:var(--ink)!important}
+#start .sw button[aria-pressed=true]{border-color:var(--pick);box-shadow:0 0 0 2px #04211f inset,0 0 12px rgba(255,122,89,.55)}
+#start #login h2{margin-top:8px}
+#start .lgtabs button,#start .lgb button{background:var(--bg2);border-color:var(--line);color:var(--ink)}
+#start .lgtabs button[aria-selected=true],#start #lgSubmit{background:var(--acc);border-color:var(--acc);color:#04211f}
+#start .lglink{color:#99f6e4}
+#start .cont{width:100%;min-height:46px;margin:6px 0;border:1.5px solid var(--pick);background:rgba(255,122,89,.18);color:#fff;border-radius:14px}
+#start .cont[hidden],#start .install[hidden],#pmInstall[hidden]{display:none}
+#start #go{grid-area:go;min-height:60px;border:0;border-radius:18px;background:linear-gradient(100deg,#ff5f6d,#ff8a4c 55%,#ffb25c);color:#2a0b05;font:800 clamp(18px,2vw,24px) "Baloo 2",sans-serif;box-shadow:0 8px 28px rgba(255,110,80,.45)}
+#go::before{content:"▶\00a0\00a0"}#go::after{content:"\00a0\00a0→"}
+body.creating #charLoad{left:0}
+/* phones and narrow windows: character on top, one sheet of options below */
+@media (max-width:760px){
+ #start{gap:8px;padding:8px;padding-bottom:max(8px,env(safe-area-inset-bottom));grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto minmax(0,41%) auto;
+  grid-template-areas:"top" "stage" "tabs" "panel" "go";background:linear-gradient(180deg,rgba(4,22,30,.4),transparent 30%,rgba(4,22,30,.8))}
+ #start .s-tabs button[data-t=me]{display:flex}
+ .s-left{grid-area:panel;display:none}
+ #start[data-tab=me] .s-left{display:flex}
+ #start[data-tab=me] .s-right{display:none}
+ #start .s-chip{font-size:13px;padding:0 10px}
+ #start #go{min-height:52px}
+ .s-tools{gap:6px}
+ #start .s-tools button{width:38px;height:38px;min-height:38px;font-size:17px}
+}
+@media (max-width:400px){.s-logo b,#start .install{display:none}}
+/* phones held sideways */
+@media (max-height:520px) and (min-width:761px){
+ #start{gap:8px;padding:8px;grid-template-columns:230px minmax(0,1fr) 280px}
+ .s-logo{font-size:24px}
+ #start .s-tabs button{min-height:40px}.s-tabs i{display:none}
+ #start #go{min-height:44px;font-size:18px}
+}
+.spotform{display:flex;flex-direction:column;gap:8px}
+.spotform label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700}
+.spotform input,.spotform select{min-height:38px;border-radius:10px;border:1.5px solid #3a4150;background:#1b1f27;color:#fff;padding:4px 10px;font:600 14px "Baloo 2",sans-serif;max-width:100%}
+/* roles as even tiles */
+#start .rsw{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#start .s-left .rsw button{min-height:36px;padding:3px 2px;border-radius:11px;font-size:11px;line-height:1.15}
+/* panels slide in once when the page opens */
+@media (prefers-reduced-motion:no-preference){
+ .s-left{animation:sIn .45s ease-out both}.s-right,.s-tabs{animation:sInR .45s ease-out both}
+ @keyframes sIn{from{opacity:0;transform:translateX(-18px)}}@keyframes sInR{from{opacity:0;transform:translateX(18px)}}
+}
+#start .s-card h2::before{content:"";display:inline-block;width:4px;height:13px;margin-right:7px;border-radius:2px;background:var(--pick);vertical-align:-1px}
+@media (max-width:760px){#sFace{width:58px;height:58px}#start .rsw{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* billboard viewer */
+#boardView{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,12,16,.6)}
+#boardView[hidden],#bvImg[hidden],#bvLink[hidden],#bvTake[hidden]{display:none}
+.bv{width:min(520px,100%);max-height:100%;overflow:auto;background:#0c1d22;color:#eafffb;border:2px solid #2dd4bf;border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:8px;text-align:center}
+.bvbar{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#2dd4bf}
+#bvClose{width:38px;height:38px;min-height:38px;padding:0;border-radius:50%}
+#bvImg{width:100%;height:auto;border-radius:12px}
+.bv h2{margin:0;font-size:24px;overflow-wrap:anywhere}.bv p{margin:0;opacity:.85;overflow-wrap:anywhere}
+#bvLink,#bvTake{display:block;min-height:46px;line-height:26px;padding:10px;border:0;border-radius:14px;background:linear-gradient(100deg,#ff5f6d,#ffb25c);color:#2a0b05;font-weight:800;font-size:17px;text-decoration:none;cursor:pointer;overflow-wrap:anywhere}
+.pcard a.pst{color:#8fd0ff}
+/* admin panel inside the game */
+#adminView{position:fixed;inset:0;z-index:25;display:flex;flex-direction:column;background:#0c1a1f}
+#adminView[hidden],#pmAdmin[hidden],#start .cont[hidden]{display:none}
+.admbar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;color:#2dd4bf;border-bottom:1px solid #2f5259}
+#adminFrame{flex:1;width:100%;border:0}
+
+/* billboard request status: show the whole sentence */
+#phone .pcard .spstat{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
+
+/* ===== touch controls ===== */
+#touch,#touch *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#drive{display:none}
+@media (pointer:coarse){
+ #joy{left:calc(18px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom));background:radial-gradient(circle,rgba(255,255,255,.12),rgba(10,14,20,.5));border:2px solid rgba(255,210,31,.85);box-shadow:0 6px 22px rgba(0,0,0,.35)}
+ #joy::before{content:"";position:absolute;inset:-28px;border-radius:50%} /* bigger area to grab */
+ #knob{background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd21f 55%,#d9a400);box-shadow:0 4px 12px rgba(0,0,0,.45)}
+ #tbtn{right:calc(14px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom))}
+ #tbtn button{background:rgba(14,18,24,.62);color:#fff;border:2px solid rgba(255,210,31,.8);box-shadow:0 4px 14px rgba(0,0,0,.35);font-size:14px;backdrop-filter:blur(4px)}
+ #tbtn button:active,#drive button.down,#drive button:active{transform:scale(.92);background:#ffd21f;color:#141414}
+ #tbtn #tE{background:#ffd21f;color:#141414;font-size:22px}
+ body.driving #joy,body.driving #tbtn{display:none}
+ body.driving #drive{display:block}
+ #drive button{touch-action:none;border-radius:18px;background:rgba(14,18,24,.62);color:#fff;border:2px solid rgba(255,255,255,.55);box-shadow:0 4px 14px rgba(0,0,0,.35);backdrop-filter:blur(4px);padding:0;transition:transform .05s}
+ #drive .steer{position:fixed;left:calc(14px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom));display:flex;gap:12px}
+ #drive .steer button{width:84px;height:84px;font-size:34px;border-radius:50%}
+ #drive .pedals{position:fixed;right:calc(14px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));display:grid;grid-template-columns:78px 86px;grid-template-rows:auto 120px;gap:10px;align-items:end}
+ #drive .dtop{grid-column:1/3;display:flex;gap:8px;justify-content:flex-end}
+ #drive .dtop button{height:46px;padding:0 14px;font-size:15px;border-radius:14px}
+ #drive .brake{height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-color:#ff6b6b;background:rgba(120,20,24,.6)}
+ #drive .gas{height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-color:#5ee08f;background:rgba(18,110,60,.6)}
+ #drive b{font-size:15px;letter-spacing:.5px}#drive small{font-size:11px;opacity:.8}
+ #drive .brake.down{background:#ff6b6b;color:#200}#drive .gas.down{background:#5ee08f;color:#022}
+ body.driving #speedo{bottom:auto;top:120px;right:12px}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px){
+ #drive .steer button{width:72px;height:72px;font-size:28px}
+ #drive .pedals{grid-template-columns:68px 76px;grid-template-rows:auto 96px}#drive .brake{height:76px}#drive .gas{height:96px}
+ #drive .dtop button{height:40px}
+}
+/* ===== install popup ===== */
+#installPop{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(4,12,16,.55);backdrop-filter:blur(3px)}
+#installPop[hidden]{display:none}
+.ip{position:relative;width:min(340px,100%);background:linear-gradient(160deg,#123038,#0b1a1f);color:#eafffb;border:2px solid #2dd4bf;border-radius:22px;padding:22px 18px 16px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:ipIn .3s ease-out}
+@keyframes ipIn{from{opacity:0;transform:translateY(16px) scale(.96)}}
+.ip img{border-radius:18px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.ip h2{margin:0;font-size:22px}.ip p{margin:0;opacity:.85;font-size:14px}
+#ipClose{position:absolute;top:8px;right:8px;width:36px;height:36px;min-height:36px;padding:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;border:0;font-size:16px}
+#ipYes{width:100%;min-height:48px;border:0;border-radius:14px;background:linear-gradient(100deg,#ff5f6d,#ffb25c);color:#2a0b05;font-weight:800;font-size:17px}
+#ipNo{width:100%;min-height:40px;background:transparent;color:#cfe;border:1.5px solid #2f5259;border-radius:12px}
+/* ===== home page polish ===== */
+#start{background:radial-gradient(120% 80% at 50% 110%,rgba(255,138,76,.18),transparent 60%),linear-gradient(90deg,rgba(4,22,30,.6),transparent 30%,transparent 65%,rgba(4,22,30,.6))}
+.s-logo{background:linear-gradient(90deg,#fff 0%,#fff 55%,#5eead4 56%,#2dd4bf 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 10px rgba(0,0,0,.55))}
+.s-logo span{color:inherit}.s-logo b{-webkit-text-fill-color:initial}
+.s-card,.s-right{background:linear-gradient(160deg,rgba(14,48,56,.9),rgba(6,24,30,.88));border:1.5px solid rgba(94,234,212,.3);box-shadow:0 12px 34px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.08)}
+.s-card{transition:border-color .2s}.s-card:hover{border-color:rgba(94,234,212,.55)}
+#start #go{position:relative;overflow:hidden;animation:goPulse 2.4s ease-in-out infinite}
+#start #go::before{content:"▶\00a0\00a0"}
+@keyframes goPulse{50%{box-shadow:0 8px 34px rgba(255,110,80,.75),0 0 0 4px rgba(255,178,92,.18)}}
+#start .s-tabs button{transition:transform .15s,background .2s}#start .s-tabs button:hover{transform:translateY(-2px)}
+#start .s-chip{background:linear-gradient(160deg,rgba(14,48,56,.92),rgba(6,24,30,.9))}
+@media (prefers-reduced-motion:reduce){#start #go{animation:none}}
+/* narrow phones: steering and pedals share the width without touching */
+@media (pointer:coarse) and (max-width:420px){
+ #drive .steer{gap:8px}#drive .steer button{width:70px;height:70px;font-size:28px}
+ #drive .pedals{grid-template-columns:66px 74px;gap:8px}
+ #drive .dtop button{height:42px;padding:0 10px;font-size:14px}
+}
+@media (pointer:coarse){
+ body.driving #speedo{top:auto;bottom:250px;right:18px}
+ body.driving #hint{bottom:240px}
+}
+/* the phone, map and menus cover the game, so its controls step aside (they overlapped the phone in landscape) */
+body.phoneOn #touch,body.mapOn #touch,body.phoneOn #chatBtn{display:none}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px){
+ #phone{top:50%;height:calc(100vh - 16px);height:calc(100dvh - 16px);width:min(330px,calc(100vw - 24px))}
+}
