@@ -544,9 +544,16 @@ function toggleMap(v){mapOn=v===undefined?!mapOn:v;$('mapov').hidden=!mapOn;docu
 function sizeMap(){const r=mapc.getBoundingClientRect();mapc.width=Math.max(1,r.width*devicePixelRatio);mapc.height=Math.max(1,r.height*devicePixelRatio)}addEventListener('resize',()=>{if(mapOn)sizeMap()});
 const mapScale=()=>MZ*Math.min(mapc.width,mapc.height)/360;
 function toWorld(cx,cy){const r=mapc.getBoundingClientRect(),s=mapScale();return{x:MC.x+((cx-r.left)*devicePixelRatio-mapc.width/2)/s,z:MC.z+((cy-r.top)*devicePixelRatio-mapc.height/2)/s}}
-mapc.addEventListener('pointerdown',e=>{mdrag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY};mapc.setPointerCapture(e.pointerId)});
-mapc.addEventListener('pointermove',e=>{if(!mdrag)return;const s=mapScale()/devicePixelRatio;MC.x-=(e.clientX-mdrag.x)/s;MC.z-=(e.clientY-mdrag.y)/s;mdrag.x=e.clientX;mdrag.y=e.clientY});
-mapc.addEventListener('pointerup',e=>{if(mdrag&&Math.hypot(e.clientX-mdrag.sx,e.clientY-mdrag.sy)<6){const w=toWorld(e.clientX,e.clientY);if(w.x>WORLD.x0&&w.x<WORLD.x1&&w.z>WORLD.z0&&w.z<SEA+100){WP=w;gpsMarker.position.set(w.x,0,w.z);gpsMarker.visible=true;toast('GPS set! Follow the purple light')}}mdrag=null});
+const MPTR=new Map();let pinch=null,pinched=false;
+const pdist=()=>{const[a,b]=[...MPTR.values()];return Math.hypot(a.x-b.x,a.y-b.y)||1};
+mapc.addEventListener('pointerdown',e=>{MPTR.set(e.pointerId,{x:e.clientX,y:e.clientY});try{mapc.setPointerCapture(e.pointerId)}catch(_){}
+ if(MPTR.size===2){pinch={d:pdist(),z:MZ};mdrag=null;pinched=true}else if(MPTR.size===1){pinched=false;mdrag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY}}});
+mapc.addEventListener('pointermove',e=>{const p=MPTR.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;
+ if(pinch&&MPTR.size>=2){MZ=Math.max(.28,Math.min(6,pinch.z*pdist()/pinch.d));return}
+ if(!mdrag)return;const s=mapScale()/devicePixelRatio;MC.x-=(e.clientX-mdrag.x)/s;MC.z-=(e.clientY-mdrag.y)/s;mdrag.x=e.clientX;mdrag.y=e.clientY});
+const mapUp=e=>{MPTR.delete(e.pointerId);if(pinch){if(MPTR.size<2)pinch=null;mdrag=null;return}
+ if(e.type==='pointerup'&&!pinched&&mdrag&&Math.hypot(e.clientX-mdrag.sx,e.clientY-mdrag.sy)<6){const w=toWorld(e.clientX,e.clientY);if(w.x>WORLD.x0&&w.x<WORLD.x1&&w.z>WORLD.z0&&w.z<SEA+100){WP=w;gpsMarker.position.set(w.x,0,w.z);gpsMarker.visible=true;toast('GPS set! Follow the purple light')}}mdrag=null};
+mapc.addEventListener('pointerup',mapUp);mapc.addEventListener('pointercancel',mapUp);
 mapc.addEventListener('wheel',e=>{e.preventDefault();MZ=Math.max(.28,Math.min(6,MZ*(e.deltaY<0?1.15:1/1.15)))},{passive:false});
 $('mzi').onclick=()=>MZ=Math.min(6,MZ*1.3);$('mzo').onclick=()=>MZ=Math.max(.28,MZ/1.3);$('mcl').onclick=()=>toggleMap(false);$('mapBtn').onclick=()=>toggleMap(true);
 $('mwp').onclick=()=>{WP=null;gpsMarker.visible=false;toast('GPS cleared')};$('mme').onclick=()=>{const h=here();MC={x:h.x,z:h.z}};
@@ -596,27 +603,29 @@ function drawBigMap(){const x=mapc.getContext('2d'),W=mapc.width,H=mapc.height,s
  const S=(wx,wz)=>[W/2+(wx-MC.x)*s,H/2+(wz-MC.z)*s],h=here();x.textBaseline='middle';x.textAlign='center';
  // GPS route (straight guide line) + pins
  if(WP){const[a,b]=S(h.x,h.z),[c,d]=S(WP.x,WP.z);x.strokeStyle='#a66bff';x.lineWidth=4*dp;x.setLineDash([10*dp,8*dp]);x.beginPath();x.moveTo(a,b);x.lineTo(c,d);x.stroke();x.setLineDash([])}
- // district names
- x.font=`800 ${15*dp}px "Baloo 2",sans-serif`;for(const p of EXTRA_PLACES){const[a2,b2]=S(p.x,p.z);x.lineWidth=5*dp;x.strokeStyle='rgba(255,255,255,.9)';x.strokeText(p.n,a2,b2);x.fillStyle='#2b3a4a';x.fillText(p.n,a2,b2)}
  // round icon badges
  const badge=(wx,wz,ic,bg,r=11)=>{const[a,b]=S(wx,wz);x.fillStyle=bg;x.strokeStyle='#fff';x.lineWidth=2.5*dp;x.beginPath();x.arc(a,b,r*dp,0,7);x.fill();x.stroke();x.font=`${r*1.15*dp}px sans-serif`;x.fillStyle='#fff';x.fillText(ic,a,b+1*dp)};
+ const placed=[],fits=(cx,cy,w,h)=>{const r=[cx-w/2-3*dp,cy-h/2-2*dp,cx+w/2+3*dp,cy+h/2+2*dp];if(r[2]<0||r[0]>W||r[3]<0||r[1]>H)return false;for(const q of placed)if(r[0]<q[2]&&r[2]>q[0]&&r[1]<q[3]&&r[3]>q[1])return false;placed.push(r);return true};
+ {const[a,b]=S(h.x,h.z);placed.push([a-22*dp,b-22*dp,a+22*dp,b+22*dp])} // keep names off your own arrow
+ for(const[wx,wz,r]of[[CAFE.x,CAFE.z-24,14],[-150,0,11]]){const[a,b]=S(wx,wz);placed.push([a-r*dp,b-r*dp,a+r*dp,b+r*dp])}
  badge(CAFE.x,CAFE.z-24,'☕','#1f6f5c',14);badge(CAFE.x+4,CAFE.z-CAFE.d/2-13,'📢','#e8742a',9);badge(-40,-318,'📢','#e8742a',9);badge(-150,0,'🚇','#7a6bd8',11);
  if(MZ>1.4)for(const v of VENDORS){const[a,b]=S(v.x,v.z);x.fillStyle=VT[v.type].col;x.strokeStyle='#fff';x.lineWidth=2*dp;x.beginPath();x.arc(a,b,5*dp,0,7);x.fill();x.stroke()}
  if(MZ>1.4)for(const r of RIDES){const[a,b]=S(r.g.position.x,r.g.position.z);x.fillStyle=r.own?'#19a7a0':'#ffd21f';x.strokeStyle='#141414';x.lineWidth=1.5*dp;x.fillRect(a-4*dp,b-4*dp,8*dp,8*dp);x.strokeRect(a-4*dp,b-4*dp,8*dp,8*dp)}
- // smaller names for other landmarks
- if(MZ>.75){x.font=`700 ${11*dp}px "Baloo 2",sans-serif`;x.lineWidth=3.5*dp;for(const p of mapExtra()){const[a,b0]=S(p.x,p.z),b=b0+17*dp;x.strokeStyle='rgba(255,255,255,.95)';x.strokeText(p.n,a,b);x.fillStyle='#5b3f8c';x.fillText(p.n,a,b)}}
- // old-city place names as pills
- if(MZ>.75){x.font=`700 ${12*dp}px "Baloo 2",sans-serif`;for(const p of PLACES){const[a,b]=S(p.x,p.z);const tw=x.measureText(p.n).width+14*dp;x.fillStyle='rgba(25,28,34,.86)';x.beginPath();x.roundRect?x.roundRect(a-tw/2,b-11*dp,tw,22*dp,11*dp):x.rect(a-tw/2,b-11*dp,tw,22*dp);x.fill();x.fillStyle='#fff';x.fillText(p.n,a,b+1*dp)}}
- if(MZ>2.2){x.font=`600 ${11*dp}px "Baloo 2",sans-serif`;x.textAlign='left';for(const v of VENDORS){const[a,b]=S(v.x,v.z);x.lineWidth=3*dp;x.strokeStyle='rgba(255,255,255,.9)';x.strokeText(VT[v.type].n,a+8*dp,b);x.fillStyle='#2b3a4a';x.fillText(VT[v.type].n,a+8*dp,b)}x.textAlign='center'}
+ const txt=(n,wx,wz,size,weight,fill,dy=0)=>{const[a,b0]=S(wx,wz),b=b0+dy;x.font=`${weight} ${size*dp}px "Baloo 2",sans-serif`;const w=x.measureText(n).width;if(!fits(a,b,w,size*dp*1.1))return;x.lineWidth=Math.max(3,size*.3)*dp;x.strokeStyle='rgba(255,255,255,.95)';x.strokeText(n,a,b);x.fillStyle=fill;x.fillText(n,a,b)};
+ // 1. old-city places as dark pills (job destinations)
+ if(MZ>.75){x.font=`700 ${12*dp}px "Baloo 2",sans-serif`;for(const p of PLACES){const[a,b]=S(p.x,p.z);const tw=x.measureText(p.n).width+14*dp;if(!fits(a,b,tw,22*dp))continue;x.fillStyle='rgba(25,28,34,.86)';x.beginPath();x.roundRect?x.roundRect(a-tw/2,b-11*dp,tw,22*dp,11*dp):x.rect(a-tw/2,b-11*dp,tw,22*dp);x.fill();x.fillStyle='#fff';x.fillText(p.n,a,b+1*dp)}}
+ // 2. districts and landmarks, larger when zoomed out
+ const big=MZ<.75?13:15;for(const p of EXTRA_PLACES)txt(p.n,p.x,p.z,big,800,'#2b3a4a');
+ // 3. smaller landmarks, 4. stalls, only when zoomed in enough to have room
+ if(MZ>1.1)for(const p of mapExtra())txt(p.n,p.x,p.z,11,700,'#5b3f8c',14*dp);
+ if(MZ>2.2)for(const v of VENDORS)txt(VT[v.type].n,v.x,v.z,11,600,'#2b3a4a',-12*dp);
  // road names along the old-city streets
- if(MZ>1.1){x.font=`700 ${10*dp}px "Baloo 2",sans-serif`;x.lineWidth=3*dp;const road=(n,wx,wz,rot)=>{const[a,b]=S(wx,wz);x.save();x.translate(a,b);x.rotate(rot);x.strokeStyle='rgba(255,255,255,.95)';x.strokeText(n,0,0);x.fillStyle='#6a5f4e';x.fillText(n,0,0);x.restore()};
+ if(MZ>1.6){x.font=`700 ${10*dp}px "Baloo 2",sans-serif`;x.lineWidth=3*dp;const road=(n,wx,wz,rot)=>{const[a,b]=S(wx,wz),w=x.measureText(n).width,hh=12*dp;if(!(rot?fits(a,b,hh,w):fits(a,b,w,hh)))return;x.save();x.translate(a,b);x.rotate(rot);x.strokeStyle='rgba(255,255,255,.95)';x.strokeText(n,0,0);x.fillStyle='#6a5f4e';x.fillText(n,0,0);x.restore()};
   ROADS.forEach((r,i)=>{road(ROAD_NAMES[i],r,-80,-PI/2);road(CROSS_NAMES[i],-80,r,0)})}
  // billboard spot numbers
  if(MZ>.9){x.font=`800 ${10*dp}px "Baloo 2",sans-serif`;for(const sp of SPOTS){if(sp.type==='lamp'&&MZ<2.2)continue;const[a,b]=S(sp.x,sp.z);x.fillStyle=BOARDS.taken(sp.code)?'#0f766e':'#e8742a';x.fillRect(a-9*dp,b-7*dp,18*dp,14*dp);x.fillStyle='#fff';x.fillText(sp.code,a,b+dp)}}
- // every real player online: a pin with their name
- for(const q of allPlayers()){const[a,b]=S(q.x,q.z);x.fillStyle=PLAYER_COL;x.strokeStyle='#fff';x.lineWidth=2.5*dp;x.beginPath();x.arc(a,b-17*dp,11*dp,PI*.8,PI*.2);x.lineTo(a,b);x.closePath();x.fill();x.stroke();
-  x.fillStyle='#fff';x.beginPath();x.arc(a,b-20*dp,3.6*dp,0,7);x.fill();x.beginPath();x.arc(a,b-10*dp,6*dp,PI,0);x.fill();
-  x.font=`800 ${12*dp}px "Baloo 2",sans-serif`;x.lineWidth=4*dp;x.strokeStyle='rgba(20,20,24,.9)';x.strokeText(q.name,a,b-37*dp);x.fillStyle='#fff';x.fillText(q.name,a,b-37*dp)}
+ // every real player online: a small pink dot (no names on the map)
+ for(const q of allPlayers()){const[a,b]=S(q.x,q.z);x.fillStyle=PLAYER_COL;x.strokeStyle='#fff';x.lineWidth=2*dp;x.beginPath();x.arc(a,b,5*dp,0,7);x.fill();x.stroke()}
  const pin=(wx,wz,c)=>{const[a,b]=S(wx,wz);x.fillStyle=c;x.strokeStyle='#fff';x.lineWidth=2.5*dp;x.beginPath();x.arc(a,b-16*dp,9*dp,PI,0);x.lineTo(a,b);x.closePath();x.fill();x.stroke();x.fillStyle='#fff';x.beginPath();x.arc(a,b-16*dp,3.5*dp,0,7);x.fill()};
  if(marker.visible)pin(marker.position.x,marker.position.z,'#2ecc71');if(WP)pin(WP.x,WP.z,'#a66bff');
  // you: arrow with a soft halo
