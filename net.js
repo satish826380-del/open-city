@@ -9,7 +9,7 @@
 // - Remote players are interpolated 100 ms in the past, extrapolated up to 250 ms, then frozen;
 //   shown within 60 m, hidden beyond 70 m, faded in/out over 300 ms, removed after 5 s of silence.
 import * as T from 'three';
-import {NET} from './net-config.js?v=6';
+import {NET} from './net-config.js?v=7';
 import {getSupa} from './auth.js?v=3';
 
 // ?bgtest keeps a hidden tab sending (only for testing two tabs on one PC)
@@ -149,7 +149,7 @@ export function startNet(G) {
     return ids;
   }
   function joinCell(id) {
-    const room = TR.joinRoom({appId: NET.appId, relayConfig: {warnOnRelayFailure: false}}, id, {onJoinError: d => console.info('[net] P2P failed with', d.peerId, d.error && d.error.message)});
+    const room = TR.joinRoom({appId: NET.appId, relayConfig: {warnOnRelayFailure: false}, ...(NET.turn && NET.turn.length ? {turnConfig: NET.turn} : {})}, id, {onJoinError: d => console.info('[net] P2P failed with', d.peerId, d.error && d.error.message)});
     const mv = room.makeAction('mv'), hi = room.makeAction('hi'), ch = room.makeAction('ch'), mt = room.makeAction('mt');
     const R = {room, mv, hi, ch, mt};
     mt.onMessage = (d, {peerId}) => { const r = st.remotes.get(peerId); if (r && r.g && G.onMeet) G.onMeet(r.name, r.g.position.x, r.g.position.z) };
@@ -344,6 +344,8 @@ export function startNet(G) {
   // players you can see right now, nearest first (for the phone's Nearby app)
   api.nearby = () => { const L = G.local(); return [...st.remotes.values()].filter(r => r.g && r.alpha > 0).map(r => ({id: r.id, name: r.name, role: r.role || 'Explorer', uid: r.uid || '', startup: r.startup || '', x: r.g.position.x, z: r.g.position.z, d: Math.hypot(r.g.position.x - L.x, r.g.position.z - L.z)})).sort((a, b) => a.d - b.d) };
   api.vehicles = () => [...st.remotes.values()].filter(r => r.veh && r.alpha > 0).map(r => ({g: r.veh.g, type: r.vehType}));
+  // the player hit by a ray (tap on screen), nearest first
+  api.pick = ray => { let best = null; for (const r of st.remotes.values()) { if (!r.g || !r.g.visible || r.alpha < .5) continue; const h = ray.intersectObject(r.g, true)[0]; if (h && (!best || h.distance < best.d)) best = {d: h.distance, id: r.id, name: r.name, role: r.role || 'Explorer', uid: r.uid || '', startup: r.startup || ''} } return best };
   api.meet = pid => { if (st.peers.has(pid)) sendTo('mt', {}, [pid]) };
   // for the maps: players you can see are exact, everyone else online is where they last reported
   api.positions = () => {

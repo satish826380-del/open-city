@@ -16,5 +16,9 @@ export const NET = {
   nearCap: 12,       // full-rate updates go to the nearest N players; the rest get 1/s
   p2pTimeout: 2500,  // ms to wait for WebRTC before using the Supabase fallback for that player
   fallbackRate: 6,   // fallback updates per second while moving (1/s when standing still)
+  // TURN relay servers let phones on mobile data connect directly (smooth movement) instead of using the slower backup.
+  // Paste the list your provider gives you, e.g. [{urls: 'turn:global.relay.example.com:443', username: '...', credential: '...'}]
+  // These are relay logins, visible to players like the key above; use a provider's limited / expiring credentials.
+  turn: [],
   chatRange: 20,     // chat messages only reach players within this distance (m)
 };

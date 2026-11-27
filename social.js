@@ -52,6 +52,8 @@ export function initSocial(G) {
     return uids.map(u => S.cache.get(u)).filter(Boolean);
   }
   api.profile = uid => S.cache.get(uid);
+  api.peek = async uid => (await profiles([uid]))[0] || null;
+  api.refreshConns = () => loadConns();
 
   // ---------- connections ----------
   async function loadConns() { const s = await sb(); if (!s || !S.uid) return; const {data} = await s.from('sc_connections').select('*').order('created_at', {ascending: false}); S.conns = data || []; await profiles(S.conns.map(c => c.requester === S.uid ? c.addressee : c.requester)) }
@@ -109,6 +111,21 @@ export function initSocial(G) {
   // ---------- billboard ----------
   api.billboard = async () => { const s = await sb(); if (!s) return []; const {data} = await s.from('sc_billboard').select('title,tagline,url,image_url,bg,fg').eq('active', true).order('sort').limit(20); return data || [] };
 
+  // ---------- suggested people: their role matches what I'm looking for, or mine matches theirs ----------
+  const NEED = {'Co-founder': 'Co-founder', Founder: 'Co-founder', Developer: 'Developer', Designer: 'Designer', Investor: 'Funding', Mentor: 'Mentor', 'Job seeker': 'Users', Student: 'Users', Marketer: 'Users'};
+  async function suggestions() {
+    const s = await sb(); if (!s || !S.uid || !S.me) return [];
+    const {data} = await s.from('sc_profiles').select('*').neq('id', S.uid).order('updated_at', {ascending: false}).limit(80);
+    const linked = new Set(S.conns.map(other)), mine = S.me.looking_for || [], mySkills = new Set((S.me.skills || []).map(x => x.toLowerCase()));
+    return (data || []).filter(p => !linked.has(p.id)).map(p => {
+      let score = 0; const why = [];
+      if (mine.includes(NEED[p.role]) || (mine.includes('Job') && ['Founder', 'Co-founder'].includes(p.role))) { score += 3; why.push(`You're looking for a ${p.role.toLowerCase()}`) }
+      if ((p.looking_for || []).includes(NEED[S.me.role]) || ((p.looking_for || []).includes('Job') && ['Founder', 'Co-founder'].includes(S.me.role))) { score += 2; why.push(`They're looking for a ${String(S.me.role || '').toLowerCase()}`) }
+      const shared = (p.skills || []).filter(x => mySkills.has(String(x).toLowerCase())); if (shared.length) { score += 1; why.push('Shared skills: ' + shared.slice(0, 3).join(', ')) }
+      S.cache.set(p.id, p); return {p, score, why: why[0] || ''};
+    }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+  }
+
   // ---------- phone apps ----------
   const chip = r => { const [n, e, c] = roleInfo(r); return `<span class="rchip" style="--rc:${c}">${e} ${esc(n)}</span>` };
   const card = (p, extra = '') => `<div class="pcard"><div class="pav" style="--rc:${roleInfo(p.role)[2]}">${esc((p.name || '?')[0].toUpperCase())}</div><div class="pinfo"><b>${esc(p.name)}</b> ${chip(p.role)}${p.startup ? `<div class="pst">${esc(p.startup)}${p.stage ? ` · <i>${esc(p.stage)}</i>` : ''}</div>` : ''}${p.pitch ? `<div class="ppitch">${esc(p.pitch)}</div>` : ''}${extra}</div></div>`;
@@ -139,13 +156,14 @@ export function initSocial(G) {
     }
     if (app === 'network') {
       if (!S.uid || S.guest) { el.innerHTML = loginNote(); return }
-      await loadConns();
+      await loadConns(); const sugg = await suggestions();
       const inc = S.conns.filter(c => c.status === 'pending' && c.addressee === S.uid), out = S.conns.filter(c => c.status === 'pending' && c.requester === S.uid), ok = S.conns.filter(c => c.status === 'accepted');
       const near = new Map(((G.net() && G.net().nearby && G.net().nearby()) || []).filter(r => r.uid).map(r => [r.uid, r]));
       const row = (c, btns) => { const p = S.cache.get(other(c)) || {name: 'Player', role: 'Explorer'}; const n = near.get(other(c)); return card(p, `${n ? `<div class="pdist">🟢 In the city · ${Math.round(n.d)} m</div>` : ''}<div class="pbtns">${btns(n)}</div>`) };
       el.innerHTML = (inc.length ? `<h4>Requests</h4>` + inc.map(c => row(c, () => `<button data-s="accept" data-id="${c.id}">✅ Accept</button><button class="ghost" data-s="remove" data-id="${c.id}">Decline</button>`)).join('') : '')
         + `<h4>My network (${ok.length})</h4>` + (ok.length ? ok.map(c => row(c, n => `<button data-s="chat" data-id="${other(c)}">💬 Chat</button>${n ? `<button data-s="meet" data-id="${esc(n.id)}">📍 Meet</button>` : ''}`)).join('') : '<p class="empty">No connections yet. Open <b>Nearby</b> and tap Connect.</p>')
         + (out.length ? `<h4>Sent</h4>` + out.map(c => row(c, () => `<button class="ghost" data-s="remove" data-id="${c.id}">Cancel</button>`)).join('') : '');
+      el.innerHTML = `<h4>✨ Suggested for you</h4>` + (!S.me ? '<p class="empty">Fill in your <b>Profile</b> (role, skills, looking for) to get suggestions.</p>' : sugg.length ? sugg.map(({p, why}) => card(p, `<div class="pdist">${esc(why)}</div><div class="pbtns"><button data-s="connect" data-id="${esc(p.id)}">🤝 Connect</button></div>`)).join('') : '<p class="empty">No matches yet. As more people join, they show up here.</p>') + el.innerHTML;
       return;
     }
     if (app === 'chats') {

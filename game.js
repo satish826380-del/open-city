@@ -1,3 +1,10 @@
+import {makeCreator} from './creator.js?v=1';
+import {makeBigMap} from './bigmap.js?v=1';
+import {makeInstall} from './install.js?v=1';
+import {makeMinimap} from './minimap.js?v=1';
+import {makeOverlays} from './overlays.js?v=1';
+import {makeLogin} from './login.js?v=1';
+import {makePeople} from './characters.js?v=1';
 import * as THREE from 'three';
 import {Sky} from 'three/addons/objects/Sky.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
@@ -7,13 +14,13 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {startNet} from './net.js?v=18';
+import {startNet} from './net.js?v=19';
 import {buildMetro} from './metro.js?v=2';
 import {makeFacades} from './facades.js?v=2';
 import {makeTrees} from './trees.js?v=1';
 import {dressCity,HINDI_SHOPS} from './dressing.js?v=6';
 import {buildNavapur,navapurGround,ringLane,WORLD,CAFE} from './navapur.js?v=20';
-import {initSocial,ROLES,roleInfo} from './social.js?v=3';
+import {initSocial,ROLES,roleInfo} from './social.js?v=4';
 import {vehicle as VEH,initVehicles} from './vehicles.js?v=3';
 import {windowGlow} from './citykit.js?v=6';
 import {buildBoards} from './boards.js?v=3';
@@ -199,224 +206,7 @@ skyDome.renderOrder=-1;if(MOBILE)skyDome.scale.setScalar(.5);skyDome.frustumCull
 TICK.push(()=>{skyDome.position.copy(camera.position);skyDome.material.uniforms.sun.value.copy(sunDir)});
 const BENCHES=dressCity({scene,ctex,mat,TEX,sign,addColl,LOTS,ROADS,LIM,SEA,R,TICK})||[];
 // ================= people =================
-const SKINS=[0x8d5524,0xa8693a,0xc68642,0x6f4521,0xe0ac69];
-const TOPS=[0xf5f5f0,0x2c5fa8,0xc0392b,0x1e7b4a,0xf2c94c,0x7b2d8b,0xe67e22,0x2b2b2b,0x8fb8c9,0xe84393];
-const BOTS=[0x22324a,0x1b1b1b,0x8c7a5b,0x4a5a6a,0xe9e4d8];
-const GEO={};const gcap=(r,l)=>GEO['c'+r+l]||(GEO['c'+r+l]=new T.CapsuleGeometry(r,l,4,10));const gsph=(r)=>GEO['s'+r]||(GEO['s'+r]=new T.SphereGeometry(r,16,12));
-const VCM=MOBILE?new T.MeshStandardMaterial({vertexColors:true,roughness:.7,metalness:0}):new T.MeshPhysicalMaterial({vertexColors:true,roughness:.65,metalness:0,sheen:.3,sheenRoughness:.6,sheenColor:new T.Color(0xffd9b8)});
-// warm rim light so skin/cloth pick up the sodium-lamp glow at grazing angles
-VCM.onBeforeCompile=s=>{s.fragmentShader=s.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n{float rim=pow(1.-saturate(dot(normalize(normal),normalize(vViewPosition))),3.);totalEmissiveRadiance+=vec3(1.,.62,.35)*rim*.06;}')};
-const PHONE_G=new T.BoxGeometry(.05,.095,.009),PHONE_M=new T.MeshStandardMaterial({color:0x111111,emissive:0x4aa8ff,emissiveIntensity:.9,roughness:.3});
-const PH_SG=new T.PlaneGeometry(.044,.088),PH_CG=new T.CylinderGeometry(.006,.006,.003,10),PH_BODY=new T.MeshStandardMaterial({color:0x2a2c30,roughness:.35,metalness:.6}),PH_SCR=new T.MeshBasicMaterial({color:0x8fd0ff}),PH_CAM=new T.MeshStandardMaterial({color:0x0a0a0a,roughness:.2});
-const _wq=new T.Quaternion(),_we=new T.Euler(),_hv1=new T.Vector3(),_hv2=new T.Vector3(),_hv3=new T.Vector3();
-function makePhone(){const g=new T.Group(),b=new T.Mesh(PHONE_G,PH_BODY),sc=new T.Mesh(PH_SG,PH_SCR),cm=new T.Mesh(PH_CG,PH_CAM);sc.position.z=.0047;cm.rotation.x=Math.PI/2;cm.position.set(-.013,.035,-.005);g.add(b,sc,cm);return g}
-const _m4=new T.Matrix4(),_q4=new T.Quaternion(),_e4=new T.Euler(),_s4=new T.Vector3(),_p4=new T.Vector3();
-const HG={sph:new T.SphereGeometry(1,18,14),cap:new T.SphereGeometry(1,18,10,0,PI*2,0,PI*.56),box:new T.BoxGeometry(1,1,1),tor:new T.TorusGeometry(1,.12,8,24)};
-const cyl=(a,b)=>HG['c'+a+b]||(HG['c'+a+b]=new T.CylinderGeometry(a,b,1,14));
-const lathe=(pts,k)=>HG['l'+k]||(HG['l'+k]=new T.LatheGeometry(pts.map(p=>new T.Vector2(p[0],p[1])),18));
-function pc(geo,col,x=0,y=0,z=0,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0){const g=geo.clone();g.applyMatrix4(_m4.compose(_p4.set(x,y,z),_q4.setFromEuler(_e4.set(rx,ry,rz)),_s4.set(sx,sy,sz)));const c=new T.Color(col),n=g.attributes.position.count,a=new Float32Array(n*3);for(let i=0;i<n;i++){a[i*3]=c.r;a[i*3+1]=c.g;a[i*3+2]=c.b}g.setAttribute('color',new T.BufferAttribute(a,3));return g}
-function part(list,parent){const m=new T.Mesh(mergeGeometries(list),VCM);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
-const shade=(c,f)=>{const k=new T.Color(c);k.multiplyScalar(f);return k};
-const TORSO_M=[[.001,0],[.15,0],[.152,.07],[.148,.15],[.162,.25],[.186,.35],[.192,.41],[.17,.47],[.1,.515],[.001,.53]],TORSO_F=[[.001,0],[.155,0],[.14,.08],[.128,.16],[.15,.26],[.175,.33],[.168,.4],[.15,.46],[.09,.505],[.001,.52]];
-const PELVIS=[[.001,-.12],[.13,-.115],[.158,-.06],[.156,.03],[.148,.1],[.001,.1]];
-let BLOB=null;
-function blobShadow(root){if(!BLOB){const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),gr=x.createRadialGradient(32,32,4,32,32,31);gr.addColorStop(0,'rgba(0,0,0,.45)');gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.fillRect(0,0,64,64);
-  BLOB={g:new T.PlaneGeometry(.95,.95).rotateX(-PI/2),m:new T.MeshBasicMaterial({map:new T.CanvasTexture(c),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4})}}
- const b=new T.Mesh(BLOB.g,BLOB.m);b.position.y=.015;b.renderOrder=1;root.add(b)}
-// kurta tails: each flap is half a flared tube, open at the sides; animH swings them so the legs never poke through
-function kurtaTails(hips,color){const m=new T.MeshStandardMaterial({color,roughness:.72,side:T.DoubleSide}),edge=new T.MeshStandardMaterial({color:shade(color,.75),roughness:.7});
- return[0,PI].map(mid=>{const g=new T.Group();g.position.y=-.04;g.scale.z=.84;hips.add(g);
-  const flap=new T.Mesh(new T.CylinderGeometry(.188,.216,.36,20,1,true,mid-PI*.46,PI*.92),m);flap.position.y=-.18;flap.castShadow=true;g.add(flap);
-  const hem=new T.Mesh(new T.CylinderGeometry(.2165,.218,.022,20,1,true,mid-PI*.46,PI*.92),m.clone());hem.material.color.copy(edge.color);hem.position.y=-.35;g.add(hem);return g})}
-function human(o){const root=new T.Group(),sk=o.skin,tp=o.top,bt=o.bottom,hr=o.hair||0x15110e,sh=o.shoes||0x2a211b,lip=shade(o.skin,.72).lerp(new T.Color(0x8a3a3a),.25),f=!!o.female,dark=shade(o.skin,.85);
- const hips=new T.Group();hips.position.y=.95;root.add(hips);
- const pel=[pc(lathe(PELVIS,'p'),bt,0,0,0,1,1,.74)];if(!o.kurti)pel.push(pc(HG.tor,0x3b2a1e,0,.085,0,.148,.148,.11,PI/2));
- if(o.kurti)pel.push(pc(cyl(.16,f?.27:.24),tp,0,-.2,0,1,f?.62:.82,1));part(pel,hips);
- const spine=new T.Group();spine.position.y=.08;hips.add(spine);
- const sp=[pc(lathe(f?TORSO_F:TORSO_M,f?'tf':'tm'),tp,0,0,0,1,1,.7),pc(HG.tor,tp,0,.51,0,.075,.075,.06,PI/2),pc(cyl(.048,.056),sk,0,.58,0,1,.14,1)];
- if(!f&&!o.vest)for(let i=0;i<4;i++)sp.push(pc(HG.sph,shade(tp,1.25),0,.12+i*.09,.128+(i>1?.006:0),.009,.009,.009));
- if(o.vest)sp.push(pc(HG.box,sk,0,.43,.09,.18,.12,.02));
- if(f&&o.dupatta)sp.push(pc(HG.box,o.dupatta,.02,.3,.13,.07,.5,.012,0,0,.45),pc(HG.box,o.dupatta,-.12,.28,-.1,.07,.55,.012,0,0,-.3));
- if(o.bag)sp.push(pc(HG.box,o.bag,0,.3,-.16,.24,.3,.11),pc(HG.box,shade(o.bag,.7),0,.38,-.1,.25,.04,.04));
- part(sp,spine);
- const head=new T.Group();head.position.y=.7;spine.add(head);
- const hd=[pc(HG.sph,sk,0,.02,0,.096,.118,.106),pc(HG.sph,sk,0,-.045,.018,.078,.072,.085),pc(HG.sph,dark,.098,.005,-.005,.014,.028,.02),pc(HG.sph,dark,-.098,.005,-.005,.014,.028,.02),
-  pc(cyl(.004,.019),dark,0,-.005,.104,1,.052,1,1.35),pc(HG.box,lip,0,-.058,.092,.04,.011,.012)];
- const iris=new T.Color(o.eye||0x4a2c17),pu=[],ld=[];
- for(const s of[-1,1]){hd.push(pc(HG.sph,0xf1ede4,s*.037,.017,.088,.016,.012,.01),pc(HG.sph,0xffffff,s*.037+.0035,.0205,.1015,.0017,.0017,.0013),pc(HG.box,hr,s*.037,.044,.098,.034,.007,.008,0,0,s*-.12));
-  pu.push(pc(HG.sph,iris,s*.037,.017,.0975,.0098,.0098,.004),pc(HG.sph,0x050505,s*.037,.017,.0995,.0047,.0047,.003));
-  ld.push(pc(HG.sph,sk,s*.037,0,.092,.0195,.0145,.011))}
- hd.push(pc(HG.cap,hr,0,.03,-.008,.104,f?.125:.118,.114));if(!f)hd.push(pc(HG.box,hr,0,.075,-.075,.17,.06,.06));
- if(o.stache)hd.push(pc(HG.box,hr,0,-.036,.101,.052,.011,.012));if(o.beard)hd.push(pc(HG.sph,hr,0,-.07,.04,.08,.05,.075));
- if(f){hd.push(pc(HG.sph,hr,0,-.03,-.075,.1,.12,.06));if(o.bun)hd.push(pc(HG.sph,hr,0,.0,-.13,.055,.055,.05));else hd.push(pc(cyl(.07,.04),hr,0,-.22,-.085,1,.28,.45));hd.push(pc(HG.sph,0xc81e5a,0,.06,.1,.006,.006,.004))}
- if(o.cap)hd.push(pc(cyl(.1,.105),o.cap,0,.115,0,1,.07,1.05),pc(HG.box,o.cap,0,.1,.1,.17,.012,.09));
- if(o.topi)hd.push(pc(HG.box,0xf4f4ee,0,.125,0,.2,.06,.1));
- part(hd,head);
- const pupils=part(pu,head),lidG=new T.Group();lidG.position.y=.017;lidG.visible=false;head.add(lidG);part(ld,lidG);
- const arms=[],legs=[];
- for(const s of[-1,1]){const shd=new T.Group();shd.position.set(s*.205,.44,0);spine.add(shd);const sl=o.longSleeve?tp:sk;
-  const ua=[pc(HG.sph,tp,0,0,0,.062,.062,.062),pc(cyl(.051,.043),sl,0,-.15,0,1,.27,1)];if(!o.longSleeve&&!o.vest)ua.push(pc(cyl(.064,.058),tp,0,-.07,0,1,.15,1));part(ua,shd);
-  const el=new T.Group();el.position.y=-.29;shd.add(el);part([pc(HG.sph,sl,0,0,0,.044,.044,.044),pc(cyl(.041,.032),sl,0,-.125,0,1,.24,1),pc(HG.sph,sk,0,-.29,.006,.034,.055,.022),pc(cyl(.012,.01),sk,-s*.028,-.27,.018,1,.05,1,.4,0,s*.5)],el);arms.push({sh:shd,el,s});
-  const hp=new T.Group();hp.position.set(s*.085,0,0);hips.add(hp);part([pc(cyl(.078,.058),bt,0,-.21,0,1,.43,1)],hp);
-  const kn=new T.Group();kn.position.y=-.43;hp.add(kn);const sc=f&&o.kurti?o.legging||bt:bt;
-  part([pc(HG.sph,sc,0,0,0,.058,.058,.058),pc(cyl(.056,.042),sc,0,-.2,0,1,.4,1),pc(HG.box,sh,0,-.425,.04,.085,.07,.21),pc(HG.box,0x161210,0,-.465,.04,.092,.022,.225),pc(HG.sph,sh,0,-.428,.14,.044,.035,.05)],kn);legs.push({hp,kn,s})}
- const phone=makePhone();phone.position.set(0,-.3,.045);phone.rotation.x=-.9;phone.visible=false;arms[1].el.add(phone);
- const t0=performance.now();
- blobShadow(root);root.userData={hips,spine,head,arms,legs,ph:R()*6,wave:0,pupils,lidG,phone,sa:0,rs:0,ss:0,pw:0,pc:0,yv:0,ly:0,gx:0,gy:0,tgx:0,tgy:0,gt:t0+1000+Math.random()*2000,nb:t0+1500+Math.random()*3500,bs:-1e9,dbl:false,np:t0+6000+Math.random()*18000,ep:0};root.scale.setScalar(o.h||1);return root}
-// ===== hero: detailed anime-style male player (black hoodie-jacket, cargo pants, high-tops) =====
-// Same rig layout as human(), so animH() drives it unchanged.
-HG.cone=new T.ConeGeometry(1,1,7);HG.ring=new T.TorusGeometry(1,.05,6,32);HG.col=new T.TorusGeometry(1,.32,8,24,PI*2-1.3);const HEAD_P=[[.001,-.118],[.03,-.113],[.055,-.095],[.075,-.065],[.09,-.03],[.099,.01],[.101,.045],[.096,.085],[.083,.118],[.058,.142],[.03,.154],[.001,.157]];
-const _up=new T.Vector3(0,1,0),_qd=new T.Quaternion(),_ed=new T.Euler(),_dv=new T.Vector3();
-// smooth hair lock: an ellipsoid stretched along a direction (no cones, so no spikes)
-const HAIR_STYLES=['Soft','Side part','Curly','Long','Buzz cut'],TOP_STYLES=['Hoodie','T-shirt','Shirt','Kurta','Suit','Blazer','Bomber'],BOT_STYLES=['Cargo','Jeans','Shorts','Formal','Joggers'];
-function heroHair(hd,hr,st){const E=(x,y,z,sx,sy,sz,rx=0,ry=0,rz=0)=>hd.push(pc(HG.sph,hr,x,y,z,sx,sy,sz,rx,ry,rz)),hl=shade(hr,1.35);
- if(st===4){hd.push(pc(HG.cap,hr,0,.03,-.006,.105,.132,.116));E(0,0,-.04,.102,.115,.098);return}
- hd.push(pc(HG.cap,hr,0,.04,-.008,.116,.142,.126));E(0,0,-.045,.109,.124,.1);
- if(st===2){for(const el of[.2,.55,.9,1.25,1.5]){const n=Math.max(1,Math.round(13*Math.cos(el)));for(let i=0;i<n;i++){const az=i/n*PI*2+el*.7,ce=Math.cos(el);if(Math.cos(az)>.5&&el<.6)continue;
-   E(.118*ce*Math.sin(az),.045+.14*Math.sin(el),-.01+.126*ce*Math.cos(az),.033,.031,.033)}}
-  for(let i=0;i<5;i++)E(-.06+i*.03,.1,.088,.027,.025,.023);return}
- E(0,.1,-.014,.114,.068,.12);                                     // smooth rounded crown
- hd.push(pc(HG.sph,hl,-.03,.145,.03,.045,.012,.05,0,0,.25));     // soft shine band
- const sw=st===1?-.45:0,mid=st===3;
- // bangs: flat rounded ellipsoids hugging the forehead, tips ending at the brows
- for(const[x,y,rz,h]of[[-.07,.072,.35,.048],[-.035,.066,.12,.056],[0,.068,-.04,.058],[.035,.066,-.16,.054],[.07,.072,-.36,.048]]){
-  const r=mid?(x<0?.25:x>0?-.25:0)+rz*.6:rz+sw;E(x+(st===1?.012:0),y,.094-Math.abs(x)*.28,.031,h,.022,-.28,0,r)}
- if(st===1)E(-.01,.108,.066,.098,.036,.055,-.2,0,-.22);         // swept side-part volume
- for(const s of[-1,1]){E(s*.104,.03,.004,.02,.062,.038,0,0,s*.08);E(s*.095,.055,-.05,.025,.07,.05,0,0,s*.12)} // sideburns + over-ear
- E(0,-.045,-.085,.085,.05,.045);                                  // nape
- if(mid){E(0,-.085,-.075,.112,.16,.072);for(const s of[-1,1])E(s*.098,-.03,-.025,.03,.11,.05,0,0,s*.1)}}
-function hero(o){const root=new T.Group(),sk=o.skin,jk=o.top,pn=o.bottom,hr=o.hairC||0x1b1d2b,tee=o.tee||0xd8d8d4,red=0xb3122a,sil=0xc9ccd1,brn=0x5b3a22,rib=shade(jk,.78),dark=shade(sk,.85),lip=shade(sk,.78).lerp(new T.Color(0x9a4a48),.3),shoe=o.shoes||0x17171a,wht=0xf2f2f2,TS=o.topS|0,BS=o.botS|0;
- const hips=new T.Group();hips.position.y=.95;root.add(hips);
- const pel=[pc(lathe(PELVIS,'p'),pn,0,0,0,1.08,1,.72),pc(cyl(.158,.16),brn,0,.06,0,1.08,.035,.76),pc(HG.box,sil,0,.06,.112,.04,.03,.012)];
- if(BS===0)pel.push(pc(HG.ring,sil,-.15,-.02,.055,.035,.055,.035,.2,1.1,0));
- if(TS===3)pel.push(pc(cyl(.166,.188),jk,0,.04,0,1.06,.18,.84),pc(HG.box,shade(jk,.8),0,.04,.152,.018,.17,.006));
- pel.push(pc(HG.sph,pn,0,-.045,-.004,.15,.088,.108)); // seat, so the trousers join smoothly
- part(pel,hips);
- const spine=new T.Group();spine.position.y=.08;hips.add(spine);
- const sp=[pc(cyl(.058,.068),sk,0,.59,0,1,.14,1)];for(const s of[-1,1])sp.push(pc(HG.sph,TS===1?jk:jk,s*.1,.5,-.012,.1,.048,.078,0,0,s*-.35));
- if(TS===0){const jkG=HG.jko||(HG.jko=new T.LatheGeometry(TORSO_M.map(p=>new T.Vector2(p[0],p[1])),24,.42,PI*2-.84));
-  sp.push(pc(jkG,jk,0,0,0,1.11,1,.79),pc(lathe(TORSO_M,'tm'),tee,0,0,0,1.07,.99,.76),pc(cyl(.152,.152),rib,0,.02,0,1.13,.05,.81),
-   pc(HG.sph,jk,0,.5,-.1,.12,.1,.07),pc(HG.sph,red,0,.55,-.085,.085,.05,.045),pc(HG.col,jk,0,.56,-.012,.085,.08,.065,PI/2-.3,0,PI/2+.65),pc(HG.col,red,0,.575,-.018,.07,.066,.055,PI/2-.3,0,PI/2+.65),
-   pc(HG.ring,sil,0,.52,.04,.07,.08,.07,PI/2+.75),pc(HG.box,sil,0,.43,.137,.014,.02,.006,0,0,PI/4));
-  for(const s of[-1,1])sp.push(pc(HG.box,shade(tee,.55),s*.022,.43,.132,.008,.07,.006,0,0,s*-.45),pc(HG.box,rib,s*.078,.25,.122,.018,.44,.016),pc(HG.box,sil,s*.07,.25,.131,.004,.42,.004),
-   pc(HG.box,sil,s*.12,.36,.112,.05,.006,.006),pc(cyl(.004,.004),0xdedede,s*.045,.39,.142,1,.16,1),pc(HG.sph,sil,s*.045,.305,.142,.006,.01,.006))}
- else if(TS===4||TS===5){ // suit (shirt and tie) or open blazer over a tee
-  const inner=TS===4?(o.tee&&o.tee!==0xd8d8d4?o.tee:0xf6f6f2):tee,lapel=shade(jk,1.18),tri=HG.tri||(HG.tri=new T.CylinderGeometry(.001,1,1,3,1));
-  sp.push(pc(lathe(TORSO_M,'tm'),jk,0,0,0,1.1,1,.8),pc(cyl(.153,.153),jk,0,-.015,0,1.13,.1,.84));
-  const deep=TS===4?.22:.3;sp.push(pc(tri,inner,0,.53-deep/2,.14,TS===4?.062:.075,deep,.034,PI),pc(HG.tor,inner,0,.515,.004,.072,.072,.075,PI/2));
-  if(TS===4){const tie=jk===0x7a1f2b?0x1b2a4a:0x8c1c2c;sp.push(pc(HG.box,tie,0,.5,.166,.03,.03,.014),pc(HG.box,tie,0,.41,.171,.027,.15,.008,-.05),pc(tri,tie,0,.322,.171,.02,.035,.006,PI),pc(HG.box,0xf2f2f2,-.085,.38,.158,.045,.012,.006))}
-  for(const s of[-1,1])sp.push(pc(HG.box,lapel,s*.056,.43,.158,.036,.2,.008,-.04,0,s*-.34),pc(HG.box,lapel,s*.082,.515,.118,.055,.03,.012,.45,0,s*.4),pc(HG.box,shade(jk,.7),s*.1,.15,.134,.07,.007,.006));
-  for(let i=0;i<2;i++)sp.push(pc(HG.sph,0x111114,TS===4?0:.05,.24-i*.075,.15-i*.004,.011,.011,.006))}
- else if(TS===6){ // bomber jacket, half zipped
-  const trim=shade(jk,.6);sp.push(pc(lathe(TORSO_M,'tm'),jk,0,0,0,1.15,1,.84),pc(cyl(.16,.152),trim,0,.025,0,1.12,.06,.84),pc(HG.tor,trim,0,.515,.004,.09,.09,.1,PI/2),
-   pc(HG.tri||(HG.tri=new T.CylinderGeometry(.001,1,1,3,1)),tee,0,.47,.146,.05,.12,.034,PI),pc(HG.box,sil,0,.23,.166,.008,.36,.006));
-  for(const s of[-1,1])sp.push(pc(HG.box,trim,s*.1,.17,.14,.012,.09,.012,0,0,s*.5))}
- else{sp.push(pc(lathe(TORSO_M,'tm'),jk,0,0,0,1.09,1,.77));for(const s of[-1,1])sp.push(pc(HG.sph,shade(jk,1.03),s*.066,.36,.088,.078,.062,.05));
-  if(TS===1)sp.push(pc(HG.tor,shade(jk,.82),0,.51,.005,.082,.082,.066,PI/2),pc(cyl(.153,.153),shade(jk,.9),0,.02,0,1.1,.03,.79));
-  else{const pl=shade(jk,.88);sp.push(pc(HG.box,pl,0,.27,.13,.026,.42,.006));for(let i=0;i<(TS===3?3:5);i++)sp.push(pc(HG.sph,TS===3?0xd4b26a:0xeeeeee,0,.44-i*.075,.135,.007,.007,.004));
-   if(TS===2){for(const s of[-1,1])sp.push(pc(HG.box,jk,s*.035,.53,.07,.06,.035,.012,.5,0,s*.55));sp.push(pc(HG.box,pl,.075,.36,.128,.06,.065,.006))}
-   else sp.push(pc(cyl(.058,.062),jk,0,.545,0,1,.045,1))}}
- part(sp,spine);
- const head=new T.Group();head.position.y=.69;head.scale.setScalar(1.05);spine.add(head);
- HG.smile=HG.smile||new T.TorusGeometry(1,.2,6,16,PI*.55);const blush=shade(sk,1).lerp(new T.Color(0xe8837a),.14),hi=shade(sk,1.06);
- const hd=[pc(lathe(HEAD_P,'hd'),sk,0,0,0,1,1,1.08),pc(HG.sph,dark,.1,0,-.005,.014,.028,.02),pc(HG.sph,dark,-.1,0,-.005,.014,.028,.02),
-
-  pc(HG.sph,hi,0,-.016,.1,.006,.016,.008),pc(HG.sph,hi,0,-.03,.1,.009,.007,.008), // nose bridge + tip catch the light
-  pc(HG.sph,dark,0,-.037,.097,.011,.0035,.005),                                   // nostril shadow
-  pc(HG.smile,lip,0,-.051,.083,.017,.012,.012,0,0,PI*1.225),                      // gentle smile
-  pc(HG.sph,blush,.056,-.03,.08,.014,.007,.005),pc(HG.sph,blush,-.056,-.03,.08,.014,.007,.005)];
- const iris=new T.Color(o.eye||0x3d2c26),irisL=iris.clone().lerp(new T.Color(0xc08a52),.45),pu=[],ld=[],EY=.002;
- for(const s of[-1,1]){const x=s*.04;
-  hd.push(pc(HG.sph,0xf6f3ee,x,EY,.086,.022,.0175,.01),
-   pc(HG.box,0x14110f,x,EY+.0175,.0945,.052,.0065,.006,0,0,s*-.12),pc(HG.box,0x14110f,x+s*.026,EY+.013,.091,.012,.005,.005,0,0,s*-.6), // upper lash + outer flick
-   pc(HG.box,shade(sk,.78),x,EY-.0175,.0925,.03,.0022,.004),                       // soft lower lash line
-   pc(HG.box,hr,x-s*.004,EY+.039,.095,.026,.008,.007,0,0,s*-.05),pc(HG.box,hr,x+s*.015,EY+.036,.093,.016,.0065,.006,0,0,s*-.42)); // arched brow
-  pu.push(pc(HG.sph,iris,x,EY-.001,.0945,.0125,.015,.005),pc(HG.sph,irisL,x,EY-.004,.0962,.008,.009,.003),pc(HG.sph,0x080808,x,EY-.0005,.0975,.0052,.0062,.003),
-   pc(HG.sph,0xffffff,x+.0045,EY+.0055,.0995,.0038,.0038,.002),pc(HG.sph,0xffffff,x-.004,EY-.007,.0992,.0018,.0018,.0015));
-  ld.push(pc(HG.sph,sk,x,0,.089,.026,.021,.014))}
- if(o.stache)hd.push(pc(HG.box,hr,0,-.04,.093,.046,.009,.01));if(o.beard)hd.push(pc(HG.sph,hr,0,-.075,.035,.078,.05,.07));
- heroHair(hd,hr,o.hairS|0);
- part(hd,head);
- const pupils=part(pu,head),lidG=new T.Group();lidG.position.y=EY;lidG.visible=false;head.add(lidG);part(ld,lidG);
- const arms=[],legs=[],hand=s=>[pc(HG.sph,sk,0,-.297,.004,.027,.05,.04),pc(HG.sph,sk,0,-.34,.01,.024,.038,.036,.22),pc(HG.box,shade(sk,.93),0,-.318,.008,.05,.012,.07,.1),pc(cyl(.013,.01),sk,-s*.006,-.293,.036,1,.052,1,.55,0,0)];
- for(const s of[-1,1]){const shd=new T.Group();shd.position.set(s*.205,.43,0);spine.add(shd);
-  if(TS===1)part([pc(HG.sph,jk,0,0,0,.064,.062,.066),pc(cyl(.068,.063),jk,0,-.07,0,1,.15,1),pc(cyl(.054,.046),sk,0,-.17,0,1,.24,1)],shd);
-  else part([pc(HG.sph,jk,0,0,0,.063,.061,.065),pc(cyl(.063,.054),jk,0,-.15,0,1,.28,1)].concat(TS===0?[pc(HG.box,red,s*.055,-.1,0,.004,.035,.02)]:[]),shd);
-  const el=new T.Group();el.position.y=-.29;shd.add(el);
-  if(TS===0)part([pc(HG.sph,jk,0,0,0,.055,.055,.055),pc(cyl(.055,.047),jk,0,-.1,0,1,.2,1),pc(cyl(.043,.043),rib,0,-.215,0,1,.05,1),pc(cyl(.037,.037),0x18181a,0,-.25,0,1,.035,1)].concat(hand(s)),el);
-  else if(TS===1)part([pc(HG.sph,sk,0,0,0,.048,.048,.048),pc(cyl(.048,.037),sk,0,-.125,0,1,.24,1),pc(HG.sph,sk,0,-.06,.006,.05,.075,.048)].concat(hand(s)),el);
-  else part([pc(HG.sph,jk,0,0,0,.055,.055,.055),pc(cyl(.054,.046),jk,0,-.11,0,1,.22,1),pc(cyl(.044,.044),shade(jk,.88),0,-.225,0,1,.04,1),pc(cyl(.034,.032),sk,0,-.25,0,1,.03,1)].concat(hand(s)),el);
-  arms.push({sh:shd,el,s});
-  const hp=new T.Group();hp.position.set(s*.094,0,0);hips.add(hp);
-  part([pc(HG.sph,pn,-s*.004,-.015,0,.096,.085,.098),pc(HG.box,shade(pn,.82),0,-.215,.087,.005,.38,.006)],hp);
-  if(BS===0)part([pc(cyl(.098,.077),pn,0,-.215,0,1,.43,1),pc(HG.box,shade(pn,1.15),s*.078,-.29,0,.02,.12,.095),pc(HG.box,shade(pn,.8),s*.089,-.235,0,.022,.012,.097)],hp);
-  else if(BS!==2)part([pc(cyl(.094,.072),pn,0,-.215,0,1,.43,1),pc(HG.box,BS===4?0xf2f2f2:shade(pn,BS===3?1.2:.8),BS===3?0:s*.08,-.215,BS===3?.082:0,BS===4?.012:.004,.42,.006)],hp);
-  else part([pc(cyl(.1,.092),pn,0,-.13,0,1,.27,1),pc(cyl(.074,.062),sk,0,-.31,0,1,.24,1)],hp);
-  const kn=new T.Group();kn.position.y=-.43;hp.add(kn);
-  const foot=[pc(cyl(.052,.058),shoe,0,-.395,.005,1,.06,1.05),pc(HG.box,shoe,0,-.43,.045,.094,.06,.2),pc(HG.sph,shoe,0,-.435,.135,.047,.03,.045),
-   pc(HG.box,wht,0,-.468,.045,.1,.026,.235),pc(HG.box,wht,0,-.425,.03,.096,.014,.1,-.35),pc(HG.tor,wht,0,-.368,.005,.054,.054,.054,PI/2),pc(HG.box,0x9a9a9a,0,-.405,.1,.04,.006,.05,.5)];
-  if(BS===0)part([pc(HG.sph,pn,0,0,0,.077,.077,.077),pc(cyl(.076,.06),pn,0,-.17,0,1,.34,1),pc(HG.sph,pn,0,-.1,-.018,.072,.1,.066),pc(cyl(.05,.052),shade(pn,.75),0,-.355,0,1,.05,1)],kn);
-  else if(BS===3)part([pc(HG.sph,pn,0,0,0,.072,.072,.072),pc(cyl(.071,.056),pn,0,-.19,0,1,.38,1),pc(HG.box,shade(pn,1.2),0,-.19,.064,.004,.36,.006)],kn);
-  else if(BS===4)part([pc(HG.sph,pn,0,0,0,.073,.073,.073),pc(cyl(.072,.05),pn,0,-.17,0,1,.34,1),pc(cyl(.052,.047),shade(pn,.7),0,-.355,0,1,.05,1),pc(HG.box,0xf2f2f2,s*.062,-.17,0,.006,.33,.012)],kn);
-  else if(BS===1)part([pc(HG.sph,pn,0,0,0,.072,.072,.072),pc(cyl(.071,.058),pn,0,-.17,0,1,.34,1),pc(HG.sph,pn,0,-.1,-.016,.068,.1,.062),pc(cyl(.062,.062),shade(pn,1.12),0,-.35,0,1,.04,1)],kn);
-  else part([pc(HG.sph,sk,0,0,0,.063,.063,.063),pc(cyl(.06,.046),sk,0,-.17,0,1,.34,1),pc(HG.sph,sk,0,-.11,-.02,.062,.1,.056),pc(cyl(.046,.048),wht,0,-.345,0,1,.06,1)],kn);
-  const ft=new T.Group();ft.position.y=-.39;kn.add(ft);part(foot,ft).geometry.translate(0,.39,0); // ankle joint, so the foot can roll with the Mixamo clip
-  legs.push({hp,kn,ft,s})}
- root.userData={male:true,hips,spine,head,arms,legs,ph:R()*6,wave:0};blobShadow(root);
- if(TS===3)root.userData.tails=kurtaTails(hips,jk);
- const phone=makePhone();phone.position.set(0,-.3,.045);phone.rotation.x=-.9;phone.visible=false;arms[1].el.add(phone);
- const t0=performance.now();
- Object.assign(root.userData,{pupils,lidG,phone,sa:0,rs:0,ss:0,pw:0,pc:0,yv:0,ly:0,gx:0,gy:0,tgx:0,tgy:0,gt:t0+1000+Math.random()*2000,nb:t0+1500+Math.random()*3500,bs:-1e9,dbl:false,np:t0+6000+Math.random()*18000,ep:0});
- root.scale.setScalar(o.h||.97);return root}
-const sit0=s=>s==='sit';
-const NPC_TEE=[0xd8d8d4,0xf2f2ee,0x2c5fa8,0xc0392b,0x1e7b4a,0xf2c94c,0x8e44ad,0x7f8c8d],NPC_JK=[0x2b2b2b,0x3b4a5a,0x6b4a2a,0x22324a,0x8a8f95,0x1e5fa8,0x7a1f2b,0x3d6b4a],NPC_HAIR=[0x15110e,0x1b1d2b,0x3b2314,0x2a1a10,0x9a9a9a];
-function npc(look){if(look.female)return human(look);const pick=a=>a[Math.floor(R()*a.length)];const ts=pick([0,1,1,2,2,3,4,5,6]),old=look.hair===0xd0d0d0||look.hair===0xcfcfcf;return hero(Object.assign({},look,{topS:ts,botS:pick([0,1,1,1,2]),hairS:old?4:pick([0,0,1,1,2,4,3]),top:ts===1?pick(NPC_TEE):pick(NPC_JK),tee:pick(NPC_TEE),hairC:look.hair===0xd0d0d0||look.hair===0xcfcfcf?0x9a9a9a:pick(NPC_HAIR),h:(look.h||1)*.97}))}
-const GREET=['Namaste! 👋','Hi!','How are you?','Hello!','Good morning! 🙏','What\'s up?','All good?'];
-function animH(g,speed,dt,state){g.userData.spd=sit0(state)?0:speed;if(g.userData.far)return;const u=g.userData,now=performance.now(),sit=state==='sit',lp=(a,b,k)=>a+(b-a)*Math.min(1,k);
- // smoothed speed drives everything, so starts, stops and walk<->run blend without snapping
- u.sv=lp(u.sv??speed,speed,dt*7);const sv=u.sv,mv=sv>.15;
- if(mv)u.ph+=dt*(3.3+sv*1.08);
- u.sa=lp(u.sa,Math.min(1,sv/1.6),dt*5);u.rs=lp(u.rs,sv>4.5?1:0,dt*4);u.ss=lp(u.ss,sit?1:0,dt*6);
- const rs=u.rs,a=u.sa*(.8+.45*rs),p=u.ph,idle=(1-Math.min(1,u.sa*3))*(1-u.ss),ss=u.ss;
- let dy=g.rotation.y-u.ly;dy=((dy+PI*3)%(PI*2))-PI;u.ly=g.rotation.y;if(dt>0)u.yv=lp(u.yv,Math.max(-3,Math.min(3,dy/dt)),dt*6);
- if(u.forcePhone&&!sit){u.pc=1;u.fp=1;u.ep=now+1e9}else if(u.fp){u.fp=0;u.pc=0;u.np=now+15000+Math.random()*15000}
- else if(!mv&&!sit&&u.wave<=0){if(!u.pc&&now>u.np){u.pc=1;u.ep=now+3500+Math.random()*3500;u.np=u.ep+9000+Math.random()*22000}else if(u.pc&&now>u.ep)u.pc=0}else u.pc=0;
- u.pw=lp(u.pw,u.pc,dt*4);const pw=u.pw;
- // legs: hip swing + knee that bends smoothly through the swing phase (squared sine, no hard corners)
- for(const L of u.legs){const q=p+(L.s>0?PI:0),hx=-Math.sin(q)*(.5+.12*rs)*a,sw=(Math.sin(q-1.25)+1)/2,kx=a*(.07+(.55+.75*rs)*sw*sw);
-  L.hp.rotation.x=lp(hx,-1.45,ss);L.kn.rotation.x=lp(kx,1.5,ss);L.hp.rotation.z=L.s*(.02+.02*rs*a)+L.s*Math.sin(now/2300+u.ph)*.012*idle}
- // arms: counter-swing that trails the legs slightly, elbows relax more on the forward swing
- for(const A of u.arms){const q=p+(A.s>0?0:PI)-.25,f=(Math.sin(q)+1)/2,br=Math.sin(now/1900+u.ph+A.s)*.025*idle;
-  A.sh.rotation.x=-Math.sin(q)*.42*a*(1+.35*rs)+br;A.el.rotation.x=-(.16+a*(.22+.85*rs)+.18*a*f);A.sh.rotation.z=A.s*(.075+a*.035+.06*rs)}
- const R1=u.arms[1];
- if(pw>.01){R1.sh.rotation.x=lp(R1.sh.rotation.x,-.75,pw);R1.el.rotation.x=lp(R1.el.rotation.x,-1.75,pw);R1.sh.rotation.z=lp(R1.sh.rotation.z,.05,pw)}
- u.phone.visible=pw>.05&&!u.vrm;
- // wave blends in and out instead of snapping
- if(u.wave>0)u.wave-=dt;u.wv=lp(u.wv||0,u.wave>0?1:0,dt*8);const wv=u.wv;
- if(wv>.01){R1.sh.rotation.x=lp(R1.sh.rotation.x,-2.5,wv);R1.sh.rotation.z=lp(R1.sh.rotation.z,.25,wv);R1.el.rotation.x=lp(R1.el.rotation.x,-.6+Math.sin(now/120)*.35,wv)}
- // body: smooth vertical bob (high at mid-stance), side sway, hip/shoulder counter-twist
- const bob=(1+Math.cos(2*p))/2;
- u.hips.position.y=.95+bob*.03*a*(1+.5*rs)-.015*a-.04*rs-.42*ss;u.hips.position.x=Math.sin(p)*.014*a*(1-.5*rs);
- u.hips.rotation.y=Math.sin(p)*.1*a;u.spine.rotation.y=-Math.sin(p)*.15*a;u.hips.rotation.z=Math.cos(p)*.028*a+Math.sin(now/2300+u.ph)*.022*idle;
- u.spine.rotation.x=lp(u.spine.rotation.x,.035+.15*rs+.04*pw,dt*6);
- u.spine.rotation.z=lp(u.spine.rotation.z,-u.yv*.045*Math.min(1,u.sa*1.5),dt*8);
- const b=Math.sin(now/750+u.ph)*.012;u.spine.scale.y=1+b*.35*(1-u.sa);
- // head stays steady while the body twists; idle look-around; look down at the phone
- const hy=(Math.sin(now/2600+u.ph)*.35)*idle*(1-pw)+Math.sin(p)*.05*a,hx2=Math.sin(now/3100+u.ph)*.06*idle+.42*pw-.6*(u.spine.rotation.x-.035)*(1-pw);
- u.head.rotation.y=lp(u.head.rotation.y,hy,dt*6);u.head.rotation.x=lp(u.head.rotation.x,hx2,dt*6);
- // real Mixamo motion (baked in mocap.js) replaces the procedural body pose once it has loaded
- const mc=!u.vrm&&mocapPose(u,speed,dt,1-u.ss),ph=u.phone;
- if(mc){ph.visible=pw>.05&&!!MX.clips.phone;if(ph.visible){if(ph.parent!==g)g.add(ph);g.updateMatrixWorld(true);
-   u.arms[0].el.localToWorld(_hv1.set(0,-.31,.03));u.arms[1].el.localToWorld(_hv2.set(0,-.31,.03));u.head.localToWorld(_hv3.set(0,0,.06));
-   _hv1.add(_hv2).multiplyScalar(.5);_hv1.lerp(_hv3,.08);ph.position.copy(g.worldToLocal(_hv2.copy(_hv1)));ph.lookAt(_hv3)}}
- else if(ph.parent===g){u.arms[1].el.add(ph);ph.position.set(0,-.3,.045);ph.rotation.set(-.9,0,0)}
- if(mc&&wv>.01&&speed>=.2){const A=u.arms[1];A.sh.quaternion.slerp(_wq.setFromEuler(_we.set(-2.5,0,.3*A.s)),wv);A.el.quaternion.slerp(_wq.setFromEuler(_we.set(-.6+Math.sin(now/120)*.35,0,0)),wv)}
- if(u.tails){const a=u.legs[0].hp.rotation.x,b=u.legs[1].hp.rotation.x;u.tails[0].rotation.x=Math.min(0,a,b)*.95;u.tails[1].rotation.x=Math.max(0,a,b)*.95}
- if(now>u.gt){u.gt=now+900+Math.random()*2600;u.tgx=Math.random()*2-1;u.tgy=pw>.3?-.8:(Math.random()*2-1)*.6;if(mv){u.tgx*=.3;u.tgy*=.3}}
- u.gx=lp(u.gx,u.tgx,dt*14);u.gy=lp(u.gy,u.tgy,dt*14);u.pupils.position.set(u.gx*.0042,u.gy*.0022,0);
- if(now>u.nb){u.bs=now;u.dbl=!u.dbl&&Math.random()<.18;u.nb=now+(u.dbl?260:2200+Math.random()*4300)}
- const bt=(now-u.bs)/150;if(bt>=0&&bt<=1){u.lidG.visible=true;u.lidG.scale.y=Math.max(.06,Math.sin(bt*PI))}else u.lidG.visible=false}
-function randLook(){const f=R()<.45,pick=a=>a[Math.floor(R()*a.length)];return{female:f,skin:pick(SKINS),top:f?pick([0xe84393,0xf2c94c,0x1e7b4a,0xc0392b,0x8fb8c9,0x7b2d8b,0xf39c12,0x16a085]):pick(TOPS),bottom:f?pick([0xf5f5f0,0x1b1b1b,0x22324a,0xe0c9a6]):pick(BOTS),kurti:f&&R()<.8,legging:pick([0xf5f5f0,0x1b1b1b,0xd9c7a8]),dupatta:f&&R()<.55?pick([0xffd21f,0xe74c3c,0xffffff,0x9b59b6]):0,bun:f&&R()<.35,hair:!f&&R()<.14?0xd0d0d0:0x15110e,stache:!f&&R()<.45,beard:!f&&R()<.12,cap:!f&&R()<.1?pick([0xffffff,0x1e5fa8,0xc0392b]):0,bag:R()<.18?pick([0x2b2b2b,0x1e5fa8,0x7a4a2a]):0,longSleeve:R()<.45,shoes:pick([0x2a211b,0x1b1b1b,0x6b4a2a,0xdedede]),h:.93+R()*.1}}
+const _makePeople=makePeople({MOBILE,MX,PI,R,T,mergeGeometries,mocapPose});const {SKINS,TOPS,BOTS,gsph,HG,HAIR_STYLES,TOP_STYLES,BOT_STYLES,GREET}=_makePeople;function pc(...a){return _makePeople.pc(...a)}function human(...a){return _makePeople.human(...a)}function hero(...a){return _makePeople.hero(...a)}function npc(...a){return _makePeople.npc(...a)}function animH(...a){return _makePeople.animH(...a)}function randLook(...a){return _makePeople.randLook(...a)}
 // ================= extra realism: curbs, building details, cables, bikes, puddles, skyline =================
 {const curbTex=ctex(128,16,(x,w,h)=>{x.fillStyle='#f2c21b';x.fillRect(0,0,64,h);x.fillStyle='#1b1b1b';x.fillRect(64,0,64,h);speck(x,w,h,400,['#000','#fff'],2,.25)});
  const gs=[];for(const b of BLOCKS){const w=b.x1-b.x0,d=b.z1-b.z0;const add=(gw,gd,x,z,hh=.3)=>{const g=uvBox(new T.BoxGeometry(gw,hh,gd),gw,hh,gd,2,.3);g.translate(x,hh/2,z);gs.push(g)};
@@ -534,105 +324,7 @@ function stall(type,x,z,ry){const g=new T.Group();g.position.set(x,.25,z);g.rota
 {const types=Object.keys(VT);let k=0;for(const b of WB){if((b.i===2||b.i===3)&&b.j===2)continue;const spots=[];if(b.j>0)spots.push([b.x0+(b.x1-b.x0)*.32,b.z0+3,PI]);if(b.j<4)spots.push([b.x0+(b.x1-b.x0)*.68,b.z1-3,0]);
   for(const[x,z,ry]of spots){if(k%3!==2)stall(types[k%types.length],x,z,ry);k++}}
  stall('panipuri',-18,31,0);stall('bhutta',18,31,0);stall('bhutta',-40,SEA+3,PI);stall('flower',30,SEA+3,PI);stall('juice',90,SEA+3,PI)}
-function vsay(v,t){if(v.bub)v.man.remove(v.bub);const s=bubble(t);s.position.y=2.3;v.man.add(s);v.bub=s;v.bt=3.2}
-function nearVendor(){return VENDORS.find(v=>Math.hypot(v.fx-P.x,v.fz-P.z)<1.9)}
-function buyVendor(v){const t=VT[v.type];if(ST.money<t.price)return toast('Not enough money');ST.hunger=Math.min(100,ST.hunger+t.h);ST.energy=Math.min(100,ST.energy+t.e);pay(-t.price,t.n);vsay(v,['Thank you, come again!','Tastes great, right?','Anything else?'][Math.floor(R()*3)]);v.man.userData.wave=1.2;if(v.type==='paper')setTimeout(()=>toast('News: '+['Local train 2 min late, commuters annoyed','Monsoon arrives early, keep an umbrella ready','Vada pav beats burger again','Stunning sunset at Marine Drive today'][Math.floor(R()*4)]),1500)}
-// ================= full map overlay =================
-let mapOn=false,MZ=1.15,MC={x:0,z:0},WP=null,mdrag=null;const mapc=$('mapc');
-const gpsMarker=new T.Group();{const beam=new T.Mesh(new T.CylinderGeometry(1.6,1.6,60,20,1,true),new T.MeshBasicMaterial({color:0xa66bff,transparent:true,opacity:.25,side:T.DoubleSide,depthWrite:false,fog:false}));beam.position.y=30;gpsMarker.add(beam);const ring=new T.Mesh(new T.TorusGeometry(2,.12,8,40),new T.MeshBasicMaterial({color:0xa66bff}));ring.rotation.x=PI/2;ring.position.y=.35;gpsMarker.add(ring)}gpsMarker.visible=false;scene.add(gpsMarker);
-function toggleMap(v){mapOn=v===undefined?!mapOn:v;$('mapov').hidden=!mapOn;document.body.classList.toggle('mapOn',mapOn);if(mapOn){const h=here();MC={x:h.x,z:h.z};togglePhone(false);sizeMap()}}
-function sizeMap(){const r=mapc.getBoundingClientRect();mapc.width=Math.max(1,r.width*devicePixelRatio);mapc.height=Math.max(1,r.height*devicePixelRatio)}addEventListener('resize',()=>{if(mapOn)sizeMap()});
-const mapScale=()=>MZ*Math.min(mapc.width,mapc.height)/360;
-function toWorld(cx,cy){const r=mapc.getBoundingClientRect(),s=mapScale();return{x:MC.x+((cx-r.left)*devicePixelRatio-mapc.width/2)/s,z:MC.z+((cy-r.top)*devicePixelRatio-mapc.height/2)/s}}
-const MPTR=new Map();let pinch=null,pinched=false;
-const pdist=()=>{const[a,b]=[...MPTR.values()];return Math.hypot(a.x-b.x,a.y-b.y)||1};
-mapc.addEventListener('pointerdown',e=>{MPTR.set(e.pointerId,{x:e.clientX,y:e.clientY});try{mapc.setPointerCapture(e.pointerId)}catch(_){}
- if(MPTR.size===2){pinch={d:pdist(),z:MZ};mdrag=null;pinched=true}else if(MPTR.size===1){pinched=false;mdrag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY}}});
-mapc.addEventListener('pointermove',e=>{const p=MPTR.get(e.pointerId);if(!p)return;p.x=e.clientX;p.y=e.clientY;
- if(pinch&&MPTR.size>=2){MZ=Math.max(.28,Math.min(6,pinch.z*pdist()/pinch.d));return}
- if(!mdrag)return;const s=mapScale()/devicePixelRatio;MC.x-=(e.clientX-mdrag.x)/s;MC.z-=(e.clientY-mdrag.y)/s;mdrag.x=e.clientX;mdrag.y=e.clientY});
-const mapUp=e=>{MPTR.delete(e.pointerId);if(pinch){if(MPTR.size<2)pinch=null;mdrag=null;return}
- if(e.type==='pointerup'&&!pinched&&mdrag&&Math.hypot(e.clientX-mdrag.sx,e.clientY-mdrag.sy)<6){const w=toWorld(e.clientX,e.clientY);if(w.x>WORLD.x0&&w.x<WORLD.x1&&w.z>WORLD.z0&&w.z<SEA+100){WP=w;gpsMarker.position.set(w.x,0,w.z);gpsMarker.visible=true;toast('GPS set! Follow the purple light')}}mdrag=null};
-mapc.addEventListener('pointerup',mapUp);mapc.addEventListener('pointercancel',mapUp);
-mapc.addEventListener('wheel',e=>{e.preventDefault();MZ=Math.max(.28,Math.min(6,MZ*(e.deltaY<0?1.15:1/1.15)))},{passive:false});
-$('mzi').onclick=()=>MZ=Math.min(6,MZ*1.3);$('mzo').onclick=()=>MZ=Math.max(.28,MZ/1.3);$('mcl').onclick=()=>toggleMap(false);$('mapBtn').onclick=()=>toggleMap(true);
-$('mwp').onclick=()=>{WP=null;gpsMarker.visible=false;toast('GPS cleared')};$('mme').onclick=()=>{const h=here();MC={x:h.x,z:h.z}};
-$('leg').innerHTML=[['#ffd21f','You'],['#ff2d78','Real players'],['#1f6f5c','☕ Startup Café'],['#e8742a','📢 Billboard'],['#7a6bd8','🚇 Metro'],['#2ecc71','Job / destination'],['#a66bff','GPS'],['#e74c3c','Traffic']].map(([c,n])=>`<span><i style="background:${c}"></i>${n}</span>`).join('')+Object.values(VT).map(v=>`<span><i style="background:${v.col}"></i>${v.n}</span>`).join('');
-// extra names shown on the maps (job destinations stay in PLACES)
-const ROAD_NAMES=['Station Road','M.G. Road','Linking Road','Hill Road'],CROSS_NAMES=['Gandhi Marg','Nehru Street','Tilak Road','Sea View Road'];
-let MAP_EXTRA=null;const mapExtra=()=>MAP_EXTRA||(MAP_EXTRA=[{n:'Vada Pav Center',x:VADA.x,z:VADA.z},{n:'Garage',x:GAR.x,z:GAR.z},{n:'Metro Station',x:-150,z:-14},{n:'City Center Plaza',x:-35,z:-345},{n:'Billboard',x:-40,z:-308},{n:'Dam & Lake',x:275,z:-505},{n:'Runway',x:385,z:112}]);
-const PLAYER_COL='#ff2d78';
-const allPlayers=()=>NETAPI&&NETAPI.positions?NETAPI.positions():[];
-// players too far away to draw get a floating name marker with the distance, so you can find each other
-const BEACONS=[];let beaconT=0;
-function beaconTick(dt){beaconT-=dt;if(beaconT>0)return;beaconT=.5;const far=started&&!creating?allPlayers().filter(q=>!q.near):[];
- while(BEACONS.length<far.length){const c=document.createElement('canvas');c.width=256;c.height=96;const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;
-  const s=new T.Sprite(new T.SpriteMaterial({map:tex,depthTest:false,fog:false,transparent:true}));s.renderOrder=5;s.userData={c,tex,key:''};
-  const beam=new T.Mesh(new T.CylinderGeometry(.6,.6,26,8,1,true),new T.MeshBasicMaterial({color:0xff2d78,transparent:true,opacity:.5,depthWrite:false,fog:false}));beam.userData.noCull=true;
-  scene.add(s,beam);BEACONS.push({s,beam})}
- BEACONS.forEach((b,i)=>{const q=far[i];b.s.visible=b.beam.visible=!!q;if(!q)return;const d=Math.round(Math.hypot(q.x-P.x,q.z-P.z)),key=q.name+d;
-  b.beam.position.set(q.x,13,q.z);const k=Math.min(6,Math.max(1.4,d/30));b.s.position.set(q.x,27+k,q.z);b.s.scale.set(6*k,2.25*k,1);
-  if(b.s.userData.key!==key){b.s.userData.key=key;const x=b.s.userData.c.getContext('2d');x.clearRect(0,0,256,96);x.fillStyle='rgba(20,10,20,.82)';x.beginPath();x.roundRect?x.roundRect(4,4,248,88,22):x.rect(4,4,248,88);x.fill();
-   x.fillStyle='#ff2d78';x.fillRect(4,4,10,88);x.textAlign='center';x.fillStyle='#fff';x.font='800 36px "Baloo 2",sans-serif';x.fillText((q.name||'Player').slice(0,12),132,44);x.fillStyle='#ffb3cd';x.font='700 26px "Baloo 2",sans-serif';x.fillText(d+' m away',132,80);b.s.userData.tex.needsUpdate=true}})}
-// clean city-map look for the big map (M): beige land, white roads with casing, building footprints, icons, names
-const MAPK={sea:'#2a7a96',sea2:'#236a84',land:'#ece5d4',beach:'#e6d3a3',caseC:'#b7ae9c',road:'#fffdf7',lane:'#e8c45a',bld:'#d7cdbb',bldT:'#c6baa4',bldS:'#a89c87',old:'#e2d9c6',park:'#a9cf8e',metro:'#7a6bd8'};
-function drawWorldHQ(x,s){
- x.fillStyle=MAPK.sea;x.fillRect(-2400,-2400,4800,4800);x.strokeStyle=MAPK.sea2;x.lineWidth=1.2;for(let i=-1200;i<1200;i+=36){x.beginPath();x.moveTo(-1200,i);x.lineTo(1200,i+40);x.stroke()}
- if(DMAP.land){x.save();x.shadowColor='rgba(0,0,0,.35)';x.shadowBlur=24;x.fillStyle=MAPK.land;polyPath(x,DMAP.land);x.fill();x.restore();x.strokeStyle=MAPK.beach;x.lineWidth=7;polyPath(x,DMAP.land);x.stroke()}
- x.globalAlpha=.42;for(const z of DMAP.zones){x.fillStyle=z.c;polyPath(x,z.pts);x.fill()}x.globalAlpha=1;
- x.fillStyle=MAPK.old;x.fillRect(-LIM,-LIM,2*LIM,LIM+SEA);x.fillStyle=MAPK.park;x.fillRect(-30,-30,60,60);
- // roads: casing first, then the white surface, then a centre line when zoomed in
- x.lineJoin=x.lineCap='round';const strokeRoads=(extra,col)=>{x.strokeStyle=col;for(const L of DMAP.lines){x.lineWidth=L.w+extra;x.beginPath();L.pts.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));if(L.closed)x.closePath();x.stroke()}
-  x.fillStyle=col;for(const r of ROADS){x.fillRect(-LIM-extra/2,r-7-extra/2,2*LIM+extra,RW+extra);x.fillRect(r-7-extra/2,-LIM-extra/2,RW+extra,LIM+SEA+extra)}};
- strokeRoads(3.5,MAPK.caseC);strokeRoads(0,MAPK.road);
- if(s>2.2){x.strokeStyle=MAPK.lane;x.lineWidth=.6;x.setLineDash([4,4]);for(const L of DMAP.lines){if(L.w<10)continue;x.beginPath();L.pts.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));if(L.closed)x.closePath();x.stroke()}
-  for(const r of ROADS){x.beginPath();x.moveTo(-LIM,r);x.lineTo(LIM,r);x.moveTo(r,-LIM);x.lineTo(r,SEA);x.stroke()}x.setLineDash([])}
- // Sea Link bridge over the water
- {const sl=[[-180,285],[-120,300],[-60,310],[5,313],[70,312],[130,303],[190,290]];x.strokeStyle='#8f969e';x.lineWidth=19;x.beginPath();sl.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));x.stroke();x.strokeStyle=MAPK.road;x.lineWidth=15;x.stroke()}
- // metro line
- x.strokeStyle=MAPK.metro;x.lineWidth=4;x.beginPath();x.moveTo(-150,-300);x.lineTo(-150,SEA);x.stroke();if(s>1.6){x.strokeStyle='#fff';x.lineWidth=1.2;x.setLineDash([3,3]);x.beginPath();x.moveTo(-150,-300);x.lineTo(-150,SEA);x.stroke();x.setLineDash([])}
- // building footprints (old-city lots + every rotated footprint of the districts)
- x.lineWidth=.6;x.strokeStyle=MAPK.bldS;
- for(const l of LOTS){x.fillStyle=l.H>16?MAPK.bldT:MAPK.bld;x.fillRect(l.x-l.w/2,l.z-l.d/2,l.w,l.d);x.strokeRect(l.x-l.w/2,l.z-l.d/2,l.w,l.d)}
- for(const o of OCOLL){if(o.h<2||o.hw>70||o.hd>70)continue;x.save();x.transform(o.c,-o.s,o.s,o.c,o.x,o.z);x.fillStyle=o.h>30?MAPK.bldT:MAPK.bld;x.fillRect(-o.hw,-o.hd,o.hw*2,o.hd*2);x.strokeRect(-o.hw,-o.hd,o.hw*2,o.hd*2);x.restore()}
- x.fillStyle='#a2784e';x.fillRect(CAFE.x-CAFE.w/2,CAFE.z-CAFE.d/2,CAFE.w,CAFE.d)}
-function drawBigMap(){const x=mapc.getContext('2d'),W=mapc.width,H=mapc.height,s=mapScale(),dp=devicePixelRatio;x.setTransform(1,0,0,1,0,0);x.fillStyle=MAPK.sea;x.fillRect(0,0,W,H);
- x.save();x.translate(W/2,H/2);x.scale(s,s);x.translate(-MC.x,-MC.z);drawWorldHQ(x,s/dp);
- if(s/dp>1.1){x.fillStyle='rgba(231,76,60,.85)';for(const v of TRAFFIC)x.fillRect(v.veh.g.position.x-1.4,v.veh.g.position.z-1.4,2.8,2.8)}
- x.fillStyle='#f4f2ee';x.strokeStyle=MAPK.metro;x.lineWidth=.8;x.fillRect(-151.6,train.z-58,3.2,116);x.strokeRect(-151.6,train.z-58,3.2,116);x.restore();
- const S=(wx,wz)=>[W/2+(wx-MC.x)*s,H/2+(wz-MC.z)*s],h=here();x.textBaseline='middle';x.textAlign='center';
- // GPS route (straight guide line) + pins
- if(WP){const[a,b]=S(h.x,h.z),[c,d]=S(WP.x,WP.z);x.strokeStyle='#a66bff';x.lineWidth=4*dp;x.setLineDash([10*dp,8*dp]);x.beginPath();x.moveTo(a,b);x.lineTo(c,d);x.stroke();x.setLineDash([])}
- // round icon badges
- const badge=(wx,wz,ic,bg,r=11)=>{const[a,b]=S(wx,wz);x.fillStyle=bg;x.strokeStyle='#fff';x.lineWidth=2.5*dp;x.beginPath();x.arc(a,b,r*dp,0,7);x.fill();x.stroke();x.font=`${r*1.15*dp}px sans-serif`;x.fillStyle='#fff';x.fillText(ic,a,b+1*dp)};
- const placed=[],fits=(cx,cy,w,h)=>{const r=[cx-w/2-3*dp,cy-h/2-2*dp,cx+w/2+3*dp,cy+h/2+2*dp];if(r[2]<0||r[0]>W||r[3]<0||r[1]>H)return false;for(const q of placed)if(r[0]<q[2]&&r[2]>q[0]&&r[1]<q[3]&&r[3]>q[1])return false;placed.push(r);return true};
- {const[a,b]=S(h.x,h.z);placed.push([a-22*dp,b-22*dp,a+22*dp,b+22*dp])} // keep names off your own arrow
- for(const[wx,wz,r]of[[CAFE.x,CAFE.z-24,14],[-150,0,11]]){const[a,b]=S(wx,wz);placed.push([a-r*dp,b-r*dp,a+r*dp,b+r*dp])}
- badge(CAFE.x,CAFE.z-24,'☕','#1f6f5c',14);badge(CAFE.x+4,CAFE.z-CAFE.d/2-13,'📢','#e8742a',9);badge(-40,-318,'📢','#e8742a',9);badge(-150,0,'🚇','#7a6bd8',11);
- if(MZ>1.4)for(const v of VENDORS){const[a,b]=S(v.x,v.z);x.fillStyle=VT[v.type].col;x.strokeStyle='#fff';x.lineWidth=2*dp;x.beginPath();x.arc(a,b,5*dp,0,7);x.fill();x.stroke()}
- if(MZ>1.4)for(const r of RIDES){const[a,b]=S(r.g.position.x,r.g.position.z);x.fillStyle=r.own?'#19a7a0':'#ffd21f';x.strokeStyle='#141414';x.lineWidth=1.5*dp;x.fillRect(a-4*dp,b-4*dp,8*dp,8*dp);x.strokeRect(a-4*dp,b-4*dp,8*dp,8*dp)}
- const txt=(n,wx,wz,size,weight,fill,dy=0)=>{const[a,b0]=S(wx,wz),b=b0+dy;x.font=`${weight} ${size*dp}px "Baloo 2",sans-serif`;const w=x.measureText(n).width;if(!fits(a,b,w,size*dp*1.1))return;x.lineWidth=Math.max(3,size*.3)*dp;x.strokeStyle='rgba(255,255,255,.95)';x.strokeText(n,a,b);x.fillStyle=fill;x.fillText(n,a,b)};
- // 1. old-city places as dark pills (job destinations)
- if(MZ>.75){x.font=`700 ${12*dp}px "Baloo 2",sans-serif`;for(const p of PLACES){const[a,b]=S(p.x,p.z);const tw=x.measureText(p.n).width+14*dp;if(!fits(a,b,tw,22*dp))continue;x.fillStyle='rgba(25,28,34,.86)';x.beginPath();x.roundRect?x.roundRect(a-tw/2,b-11*dp,tw,22*dp,11*dp):x.rect(a-tw/2,b-11*dp,tw,22*dp);x.fill();x.fillStyle='#fff';x.fillText(p.n,a,b+1*dp)}}
- // 2. districts and landmarks, larger when zoomed out
- const big=MZ<.75?13:15;for(const p of EXTRA_PLACES)txt(p.n,p.x,p.z,big,800,'#2b3a4a');
- // 3. smaller landmarks, 4. stalls, only when zoomed in enough to have room
- if(MZ>1.1)for(const p of mapExtra())txt(p.n,p.x,p.z,11,700,'#5b3f8c',14*dp);
- if(MZ>2.2)for(const v of VENDORS)txt(VT[v.type].n,v.x,v.z,11,600,'#2b3a4a',-12*dp);
- // road names along the old-city streets
- if(MZ>1.6){x.font=`700 ${10*dp}px "Baloo 2",sans-serif`;x.lineWidth=3*dp;const road=(n,wx,wz,rot)=>{const[a,b]=S(wx,wz),w=x.measureText(n).width,hh=12*dp;if(!(rot?fits(a,b,hh,w):fits(a,b,w,hh)))return;x.save();x.translate(a,b);x.rotate(rot);x.strokeStyle='rgba(255,255,255,.95)';x.strokeText(n,0,0);x.fillStyle='#6a5f4e';x.fillText(n,0,0);x.restore()};
-  ROADS.forEach((r,i)=>{road(ROAD_NAMES[i],r,-80,-PI/2);road(CROSS_NAMES[i],-80,r,0)})}
- // billboard spot numbers
- if(MZ>.9){x.font=`800 ${10*dp}px "Baloo 2",sans-serif`;for(const sp of SPOTS){if(sp.type==='lamp'&&MZ<2.2)continue;const[a,b]=S(sp.x,sp.z);x.fillStyle=BOARDS.taken(sp.code)?'#0f766e':'#e8742a';x.fillRect(a-9*dp,b-7*dp,18*dp,14*dp);x.fillStyle='#fff';x.fillText(sp.code,a,b+dp)}}
- // every real player online: a small pink dot (no names on the map)
- for(const q of allPlayers()){const[a,b]=S(q.x,q.z);x.fillStyle=PLAYER_COL;x.strokeStyle='#fff';x.lineWidth=2*dp;x.beginPath();x.arc(a,b,5*dp,0,7);x.fill();x.stroke()}
- const pin=(wx,wz,c)=>{const[a,b]=S(wx,wz);x.fillStyle=c;x.strokeStyle='#fff';x.lineWidth=2.5*dp;x.beginPath();x.arc(a,b-16*dp,9*dp,PI,0);x.lineTo(a,b);x.closePath();x.fill();x.stroke();x.fillStyle='#fff';x.beginPath();x.arc(a,b-16*dp,3.5*dp,0,7);x.fill()};
- if(marker.visible)pin(marker.position.x,marker.position.z,'#2ecc71');if(WP)pin(WP.x,WP.z,'#a66bff');
- // you: arrow with a soft halo
- {const[a,b]=S(h.x,h.z);x.fillStyle='rgba(255,210,31,.25)';x.beginPath();x.arc(a,b,20*dp,0,7);x.fill();x.save();x.translate(a,b);x.rotate(PI-(P.ride?P.ride.g.rotation.y:P.yaw));x.fillStyle='#ffd21f';x.strokeStyle='#141414';x.lineWidth=3*dp;x.beginPath();x.moveTo(0,-14*dp);x.lineTo(10*dp,11*dp);x.lineTo(0,5*dp);x.lineTo(-10*dp,11*dp);x.closePath();x.fill();x.stroke();x.restore()}
- // compass + scale bar
- {const cx=W-34*dp,cy=H-34*dp;x.fillStyle='rgba(20,22,28,.85)';x.beginPath();x.arc(cx,cy,20*dp,0,7);x.fill();x.fillStyle='#ff5a4f';x.beginPath();x.moveTo(cx,cy-15*dp);x.lineTo(cx+6*dp,cy);x.lineTo(cx-6*dp,cy);x.fill();x.fillStyle='#fff';x.beginPath();x.moveTo(cx,cy+15*dp);x.lineTo(cx+6*dp,cy);x.lineTo(cx-6*dp,cy);x.fill();x.font=`800 ${10*dp}px sans-serif`;x.fillText('N',cx,cy-27*dp)}
- {const nice=[10,20,50,100,200,500],m=nice.find(v=>v*s>70*dp)||500,len=m*s,bx=16*dp,by=H-20*dp;x.fillStyle='rgba(20,22,28,.85)';x.fillRect(bx-6*dp,by-18*dp,len+56*dp,28*dp);x.strokeStyle='#fff';x.lineWidth=3*dp;x.beginPath();x.moveTo(bx,by-6*dp);x.lineTo(bx,by);x.lineTo(bx+len,by);x.lineTo(bx+len,by-6*dp);x.stroke();x.font=`700 ${11*dp}px sans-serif`;x.textAlign='left';x.fillStyle='#fff';x.fillText(m+' m',bx+len+6*dp,by-3*dp);x.textAlign='center'}}
+let mapOn=false;let WP=null;const _makeBigMap=makeBigMap({$,CAFE,DMAP,EXTRA_PLACES,GAR,LIM,LOTS,OCOLL,P,PI,R,RIDES,ROADS,RW,SEA,SPOTS,ST,T,TRAFFIC,VADA,VENDORS,VT,WORLD,bubble,here,pay,scene,toast,togglePhone,train,get BOARDS(){return BOARDS},get NETAPI(){return NETAPI},set NETAPI(v){NETAPI=v},get PLACES(){return PLACES},get WP(){return WP},set WP(v){WP=v},get creating(){return creating},set creating(v){creating=v},get mapOn(){return mapOn},set mapOn(v){mapOn=v},get marker(){return marker},get polyPath(){return polyPath},get started(){return started},set started(v){started=v}});const {gpsMarker,mapExtra,PLAYER_COL,allPlayers}=_makeBigMap;function vsay(...a){return _makeBigMap.vsay(...a)}function nearVendor(...a){return _makeBigMap.nearVendor(...a)}function buyVendor(...a){return _makeBigMap.buyVendor(...a)}function toggleMap(...a){return _makeBigMap.toggleMap(...a)}function beaconTick(...a){return _makeBigMap.beaconTick(...a)}function drawBigMap(...a){return _makeBigMap.drawBigMap(...a)}
 // ================= UI / audio =================
 let tt=0;function toast(m){$('toast').textContent=m;$('toast').classList.add('on');clearTimeout(tt);tt=setTimeout(()=>$('toast').classList.remove('on'),2400)}
 function hudMoney(){$('money').textContent='₹'+Math.floor(ST.money).toLocaleString('en-IN');$('lv').textContent='Lv. '+(1+Math.floor((ST.day-1)/2));$('avHair').setAttribute('d',ST.look.female?'M16 40c-3-17 4-28 16-28s19 11 16 28c-1-9-3-14-7-17-3 3-9 4-15 3-4 2-7 7-10 14z':'M17 31c-2-11 5-19 15-19 11 0 17 7 15 19-2-5-4-8-7-9 1 3 0 5-2 6-1-4-4-6-6-6-1 3-4 5-9 5 1-2 1-3 0-4-3 2-5 5-6 8z')}
@@ -693,24 +385,7 @@ $('pmSet').onclick=()=>{setMenu(false);APP='set';document.querySelectorAll('.tab
 $('pmHelp').onclick=()=>{const u=$('pmKeys');u.hidden=!u.hidden;$('pmHelp').setAttribute('aria-expanded',!u.hidden)};
 function backToCreator(){setMenu(false);togglePhone(false);if(mapOn)toggleMap(false);if(SIT)standUp();if(P.ride){P.ride.speed=0;P.ride=null;me.visible=true}
  creating=true;document.body.classList.add('creating');$('start').style.display='';CV.yaw=0;setZoom(1);$('sMoney').textContent='₹'+ST.money.toLocaleString('en-IN');$('go').textContent='Back to the city';heroRows()}
-$('pmChar').onclick=backToCreator;
-$('pmOut').onclick=async()=>{await logout();showAuth({kind:'none'});backToCreator()};
-$('pmenu').onclick=e=>{if(e.target.id==='pmenu')setMenu(false)};
-// ---- install as an app (PWA): Android/desktop Chrome & Edge get the real install prompt, iPhone gets instructions
-let INSTALL_EV=null;const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||navigator.standalone===true;
-const IS_IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-function showInstall(v){for(const id of['install','pmInstall'])$(id).hidden=!v}
-addEventListener('beforeinstallprompt',e=>{e.preventDefault();INSTALL_EV=e;showInstall(!isStandalone())});
-addEventListener('appinstalled',()=>{INSTALL_EV=null;showInstall(false);toast('📲 Installed! Open Startup City from your home screen')});
-if(IS_IOS&&!isStandalone())showInstall(true);
-async function doInstall(){if(INSTALL_EV){INSTALL_EV.prompt();const r=await INSTALL_EV.userChoice;INSTALL_EV=null;if(r.outcome==='accepted')showInstall(false)}else if(IS_IOS)$('iosTip').hidden=false;else toast('Use your browser menu → Install app')}
-// popup offering to install, once per three days, with a cross to close it
-function maybeInstallPop(){if(isStandalone()||!(INSTALL_EV||IS_IOS))return;const no=store.get('mn2_inst_no')||0;if(Date.now()-no<3*864e5)return;$('installPop').hidden=false}
-function closeInstallPop(){$('installPop').hidden=true;store.set('mn2_inst_no',Date.now())}
-$('ipClose').onclick=$('ipNo').onclick=closeInstallPop;$('installPop').onclick=e=>{if(e.target.id==='installPop')closeInstallPop()};
-$('ipYes').onclick=()=>{$('installPop').hidden=true;doInstall()};
-addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('installPop').hidden){e.stopImmediatePropagation();closeInstallPop()}},true);
-setTimeout(maybeInstallPop,4000);addEventListener('beforeinstallprompt',()=>setTimeout(maybeInstallPop,4000));
+const _makeInstall=makeInstall({$,backToCreator,logout,setMenu,showAuth,store,toast});function doInstall(...a){return _makeInstall.doInstall(...a)}
 $('install').onclick=doInstall;$('pmInstall').onclick=()=>{setMenu(false);doInstall()};$('iosOk').onclick=()=>$('iosTip').hidden=true;
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(e=>console.warn('service worker',e));
 function setPhoto(v){photo=v;document.body.classList.toggle('photo',v);if(v)togglePhone(false)}
@@ -813,109 +488,14 @@ $('app').onclick=e=>{{const s=e.target.closest('[data-open],[data-s]');if(s){if(
  if('mute' in d){muted=!muted;store.set('mn2_mute',muted);renderApp()}if('photo' in d)setPhoto(true);if('bigmap' in d)toggleMap(true);
  if('reset' in d){store.set('mn2_save',null);location.reload()}};
 // ================= maps =================
-const polyPath=(x,pts)=>{x.beginPath();pts.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));x.closePath()};
-function drawWorld(x,big){x.fillStyle='#1a5566';x.fillRect(-1600,-1600,3200,3200);if(DMAP.land){x.fillStyle='#a89f8f';polyPath(x,DMAP.land);x.fill()}
- for(const z of DMAP.zones){x.fillStyle=z.c;polyPath(x,z.pts);x.fill()}x.fillStyle='#b8b1a3';x.fillRect(-LIM,-LIM,2*LIM,LIM+SEA);x.strokeStyle='#3a3b3f';x.lineJoin='round';for(const L of DMAP.lines){x.lineWidth=L.w;x.beginPath();L.pts.forEach(([a,b],i)=>i?x.lineTo(a,b):x.moveTo(a,b));if(L.closed)x.closePath();x.stroke()}x.fillStyle='#5d8a3a';x.fillStyle='#5d8a3a';x.fillRect(-30,-30,60,60);x.fillStyle='#8a8580';for(const l of LOTS)x.fillRect(l.x-l.w/2,l.z-l.d/2,l.w,l.d);
- x.fillStyle='#3a3b3f';for(const r of ROADS){x.fillRect(-LIM,r-7,2*LIM,RW);x.fillRect(r-7,-LIM,RW,LIM+SEA)}x.fillStyle='#6f665b';x.fillRect(-157,-LIM,14,2*LIM);
- if(big){x.fillStyle='#fff';x.font='700 7px "Baloo 2",sans-serif';for(const p of PLACES)x.fillText(p.n,p.x-12,p.z);x.font='800 12px "Baloo 2",sans-serif';x.fillStyle='#fffaf0';for(const p of EXTRA_PLACES)x.fillText(p.n,p.x-20,p.z)}}
-function drawMap(cv,big){const x=cv.getContext('2d'),s=cv.width/360;x.save();x.scale(s,s);x.translate(180,180);drawWorld(x,true);const h=here();if(marker.visible){x.fillStyle='#2ecc71';x.beginPath();x.arc(marker.position.x,marker.position.z,5,0,7);x.fill()}x.fillStyle='#ffd21f';x.strokeStyle='#141414';x.lineWidth=2;x.beginPath();x.arc(h.x,h.z,4,0,7);x.fill();x.stroke();x.restore()}
-function drawMini(){const cv=$('mini'),x=cv.getContext('2d'),h=here();x.save();x.clearRect(0,0,300,300);x.beginPath();x.arc(150,150,150,0,7);x.clip();x.translate(150,150);x.rotate(camYaw);x.scale(2.2,2.2);x.translate(-h.x,-h.z);drawWorld(x,false);
- x.fillStyle='#e74c3c';for(const t of TRAFFIC)x.fillRect(t.veh.g.position.x-1.5,t.veh.g.position.z-1.5,3,3);if(marker.visible){x.fillStyle='#2ecc71';x.beginPath();x.arc(marker.position.x,marker.position.z,4,0,7);x.fill()}x.restore();
- // upright overlay: nearby place names, then real players (held on the rim when they are off the map)
- const at=(wx,wz)=>{const dx=(wx-h.x)*2.2,dz=(wz-h.z)*2.2,c=Math.cos(camYaw),s=Math.sin(camYaw);return[dx*c-dz*s,dx*s+dz*c]};
- x.textAlign='center';x.textBaseline='middle';x.font='800 19px "Baloo 2",sans-serif';x.lineWidth=5;
- const near=[...PLACES,...EXTRA_PLACES,...mapExtra()].map(p=>[p,Math.hypot(p.x-h.x,p.z-h.z)]).filter(q=>q[1]<62).sort((a,b)=>a[1]-b[1]),used=[];
- for(const[p]of near){const[a,b]=at(p.x,p.z);if(used.some(u=>Math.abs(u[1]-b)<24&&Math.abs(u[0]-a)<110))continue;used.push([a,b]);x.strokeStyle='rgba(15,15,20,.9)';x.strokeText(p.n,150+a,150+b);x.fillStyle='#fff';x.fillText(p.n,150+a,150+b);if(used.length>=3)break}
- for(const q of allPlayers()){let[a,b]=at(q.x,q.z);const l=Math.hypot(a,b),far=l>132;if(far){a*=132/l;b*=132/l}x.fillStyle=PLAYER_COL;x.strokeStyle='#fff';x.lineWidth=3;x.beginPath();x.arc(150+a,150+b,far?9:13,0,7);x.fill();x.stroke();
-  if(!far){x.fillStyle='#fff';x.font='800 16px "Baloo 2",sans-serif';x.fillText((q.name||'?')[0].toUpperCase(),150+a,151+b)}}
- x.save();x.translate(150,150);x.rotate(PI-(P.ride?P.ride.g.rotation.y:P.yaw)+camYaw);x.fillStyle='#ffd21f';x.strokeStyle='#141414';x.lineWidth=3;x.beginPath();x.moveTo(0,-12);x.lineTo(9,10);x.lineTo(-9,10);x.closePath();x.fill();x.stroke();x.restore()}
+const _makeMinimap=makeMinimap({$,DMAP,EXTRA_PLACES,LIM,LOTS,P,PI,PLACES,PLAYER_COL,ROADS,RW,SEA,TRAFFIC,allPlayers,here,mapExtra,marker,get camYaw(){return camYaw},set camYaw(v){camYaw=v}});const {polyPath}=_makeMinimap;function drawMap(...a){return _makeMinimap.drawMap(...a)}function drawMini(...a){return _makeMinimap.drawMini(...a)}
 // ================= rain =================
 const RN=3500,rainGeo=new T.BufferGeometry(),rainPos=new Float32Array(RN*6);for(let i=0;i<RN;i++){const x=(R()-.5)*80,y=R()*40,z=(R()-.5)*80;rainPos.set([x,y,z,x+.05,y-.7,z],i*6)}rainGeo.setAttribute('position',new T.BufferAttribute(rainPos,3));
 const rain=new T.LineSegments(rainGeo,new T.LineBasicMaterial({color:0xaabbcc,transparent:true,opacity:.0,fog:false,depthWrite:false}));rain.frustumCulled=false;scene.add(rain);
 let wet=0,rainAmt=0,rainTarget=0,weatherT=240;
 // ================= character creator =================
 // debug: ?top=x,z,height shows the map straight from above (for checking roads and building placement)
-const TOPV=(()=>{const v=(new URLSearchParams(location.search).get('top')||'').split(',').map(Number);return v.length===3&&v.every(isFinite)?v:null})();if(TOPV)document.getElementById('start').style.display='none';
-// debug: ?cam=x,y,z,tx,ty,tz fixes the camera (for screenshots of a spot)
-const CAMV=(()=>{const v=(new URLSearchParams(location.search).get('cam')||'').split(',').map(Number);return v.length===6&&v.every(isFinite)?v:null})();if(CAMV)document.getElementById('start').style.display='none';
-let creating=true;const CLOSE=new URLSearchParams(location.search).get('closeup'),CYAW=new URLSearchParams(location.search).get('yaw'),CWALK=+new URLSearchParams(location.search).get('walk')||0,CPHONE=new URLSearchParams(location.search).has('phone');if(CLOSE)document.getElementById('start').style.display='none';const SKINSW=SKINS,TOPSW=TOPS.slice(0,8),BOTSW=BOTS;
-function swatches(id,list,key){$(id).innerHTML=list.map((c,i)=>`<button aria-label="colour ${i+1}" data-i="${i}" style="background:#${c.toString(16).padStart(6,'0')}" aria-pressed="${ST.look[key]===c}"></button>`).join('');$(id).onclick=e=>{const b=e.target.closest('button');if(!b)return;ST.look[key]=list[+b.dataset.i];rebuildMe();swatches(id,list,key);presetSw()}}
-function genderSw(){$('sG').innerHTML=['♂ Male','♀ Female'].map((n,i)=>`<button type="button" data-i="${i}" aria-pressed="${!!ST.look.female===!!i}">${n}</button>`).join('');$('sG').onclick=e=>{const b=e.target.closest('button');if(!b)return;ST.look.female=b.dataset.i==='1';ST.look.kurti=ST.look.female;ST.look.outfit=0;rebuildMe();genderSw();outfitSw();applyOutfit();presetSw()}}
-// ---- start screen: tabs, quick looks, and turning / zooming the character
-function sTab(t){$('start').dataset.tab=t;for(const b of $('sTabs').children)b.setAttribute('aria-pressed',b.dataset.t===t)}
-$('sTabs').onclick=e=>{const b=e.target.closest('button');if(b)sTab(b.dataset.t)};$('sAcc').onclick=()=>sTab('account');sTab(innerWidth<=760?'me':'look');
-const CV={yaw:0,zoom:1,drag:null};
-function setZoom(z){CV.zoom=Math.max(1,Math.min(3,z));$('sStage').classList.toggle('zoomed',CV.zoom>1.01)}
-$('sStage').addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;CV.drag={x:e.clientX,id:e.pointerId};$('sStage').setPointerCapture(e.pointerId)});
-$('sStage').addEventListener('pointermove',e=>{const d=CV.drag;if(!d||d.id!==e.pointerId)return;CV.yaw+=(e.clientX-d.x)*.012;d.x=e.clientX});
-for(const ev of['pointerup','pointercancel'])$('sStage').addEventListener(ev,()=>CV.drag=null);
-$('sStage').addEventListener('wheel',e=>setZoom(CV.zoom-e.deltaY*.002),{passive:true});
-$('sStage').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const v=b.dataset.v;if(v==='turn')CV.yaw+=PI/4;else if(v==='in')setZoom(CV.zoom+.5);else if(v==='out')setZoom(CV.zoom-.5);else{CV.yaw=0;setZoom(1)}});
-// quick looks: name, hair style, hair colour, top style, top, inner tee, pant style, pants, shoes
-const LOOKS=[['Street',0,0x1b1d2b,0,0x8c1f2c,0xd8d8d4,0,0x1b1b1b,0xf2f2f2],['Office',0,0x1b1d2b,2,0xf5f5f0,0xd8d8d4,1,0x22324a,0x6b4a2a],['Sunny',0,0x1b1d2b,0,0xf2b624,0x2b2b2b,1,0x7d8288,0xf2f2f2],['Suit',0,0x1b1d2b,4,0x1b2a4a,0xd8d8d4,3,0x1b2a4a,0x17171a],['Blazer',0,0x1b1d2b,5,0xb08d63,0xf2f2f2,1,0x22324a,0x6b4a2a],['Bomber',0,0x1b1d2b,6,0x2f4a3a,0xd8d8d4,4,0x1b1b1b,0xf2f2f2],['Night',0,0x1b1d2b,1,0x222224,0xd8d8d4,0,0x1b1b1b,0xf2f2f2],['Fest',0,0x1b1d2b,3,0x0f5c4a,0xd8d8d4,1,0xe9e4d8,0x6b4a2a]];
-// the portraits come as one sheet (4 across, 2 down, same order as LOOKS) on white: cut them out once and
-// clear the white that is connected to each tile's edge, so white shirts stay solid
-let LOOK_ART=[];
-{const img=new Image();img.onload=()=>{const cw=img.width/4,ch=img.height/2,w=Math.round(cw*.66),h=Math.round(ch);
-  LOOK_ART=LOOKS.map((_,i)=>{const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,(i%4)*cw+(cw-w)/2,Math.floor(i/4)*ch,w,h,0,0,w,h);
-   const d=x.getImageData(0,0,w,h),p=d.data,seen=new Uint8Array(w*h),todo=[];const white=k=>p[k*4]>243&&p[k*4+1]>243&&p[k*4+2]>243;
-   const visit=k=>{if(!seen[k]&&white(k)){seen[k]=1;todo.push(k)}};
-   for(let u=0;u<w;u++){visit(u);visit((h-1)*w+u)}for(let v=0;v<h;v++){visit(v*w);visit(v*w+w-1)}
-   while(todo.length){const k=todo.pop(),u=k%w;p[k*4+3]=0;if(u>0)visit(k-1);if(u<w-1)visit(k+1);if(k>=w)visit(k-w);if(k<w*(h-1))visit(k+w)}
-   // soften the pale fringe left around the cut
-   for(let k=0;k<w*h;k++){if(seen[k])continue;const m=Math.min(p[k*4],p[k*4+1],p[k*4+2]);if(m>215&&(seen[k-1]||seen[k+1]||seen[k-w]||seen[k+w]))p[k*4+3]=Math.max(0,(250-m)*7)}
-   x.putImageData(d,0,0);return c.toDataURL()});
-  presetSw()};img.src='icons/quick-looks.webp'}
-const lookNow=()=>{const l=ST.look;return LOOKS.findIndex(([,,,ts,top,,,bot])=>(l.topS|0)===ts&&l.top===top&&l.bottom===bot)};
-function presetSw(){const on=lookNow();$('sP').innerHTML=LOOKS.map(([n],i)=>`<button type="button" data-i="${i}" aria-label="${n} look" aria-pressed="${i===on}">${LOOK_ART[i]?`<img src="${LOOK_ART[i]}" alt="">`:'<i></i>'}<span>${n}</span></button>`).join('');
- const face=$('sFace');if(face){const art=LOOK_ART[Math.max(0,on)];face.hidden=!art;if(art)face.src=art}
- // the portraits are of the male character, so they are hidden for the female one
- $('start').classList.toggle('female',!!ST.look.female)}
-$('sP').onclick=e=>{const b=e.target.closest('button');if(!b)return;const[,hairS,hairC,topS,top,tee,botS,bottom,shoes]=LOOKS[+b.dataset.i];Object.assign(ST.look,{hairS,hairC,topS,top,tee,botS,bottom,shoes});
- if(outfitList().length){Object.assign(vcGet(),{hair:hairC,top,bottom,shoes});applyColors();colorRows()}
- rebuildMe();presetSw();swatches('sT',TOPSW,'top');swatches('sB',BOTSW,'bottom');heroRows()};
-// ---- multiplayer (Supabase Realtime, see net.js / net-config.js)
-let NETAPI=null;
-function lookPayload(){const l=ST.look;return{female:!!l.female,skin:l.skin,top:l.top,bottom:l.bottom,outfit:l.outfit|0,hairS:l.hairS|0,hairC:l.hairC,tee:l.tee,topS:l.topS|0,botS:l.botS|0,shoes:l.shoes}}
-// extra Ladka rows: hair style + colour, top style, inner tee, pant style, shoes
-const H_ROWS=[['hairS','Hair style',HAIR_STYLES],['hairC','Hair colour',[0x1b1d2b,0x15110e,0x3b2314,0x7a4a24,0xc9a26b,0x9a9a9a,0x7a1f2b,0x2d3e8f]],['topS','Top style',TOP_STYLES],
- ['tee','Shirt / T-shirt',[0xd8d8d4,0x2b2b2b,0xc0392b,0x2c5fa8,0xf2c94c,0x1e7b4a]],['botS','Pants style',BOT_STYLES],['shoes','Shoes',[0x17171a,0xf2f2f2,0xc0392b,0x2c5fa8,0x6b4a2a]]];
-function heroRows(){const el=$('hRows');const hl=$('hLook'),isHair=k=>k==='hairS'||k==='hairC';if(ST.look.female||CHAR_WAIT||outfitList().length){el.style.display=hl.style.display='none';return}el.style.display=hl.style.display='';const l=ST.look;
- const rows=want=>H_ROWS.filter(([k])=>isHair(k)===want&&(k!=='tee'||[0,4,5,6].includes(l.topS|0))).map(([k,n,list])=>`<label>${n}</label><div class="sw" data-k="${k}">${typeof list[0]==='string'?list.map((t,i)=>`<button data-v="${i}" aria-pressed="${(l[k]|0)===i}" style="width:auto;padding:0 12px;border-radius:12px;background:#2a2a2a;color:#fff">${t}</button>`).join(''):list.map(v=>`<button aria-label="colour" data-v="${v}" aria-pressed="${(l[k]??list[0])===v}" style="background:#${v.toString(16).padStart(6,'0')}"></button>`).join('')}</div>`).join('');el.innerHTML=rows(false);hl.innerHTML=rows(true);
- el.onclick=hl.onclick=e=>{const b=e.target.closest('button'),row=e.target.closest('[data-k]');if(!b||!row)return;ST.look[row.dataset.k]=+b.dataset.v;if(row.dataset.k==='topS'&&+b.dataset.v===4){Object.assign(ST.look,{top:0x1b2a4a,bottom:0x1b2a4a,botS:3,shoes:0x17171a,tee:0xd8d8d4});swatches('sT',TOPSW,'top');swatches('sB',BOTSW,'bottom')}rebuildMe();heroRows();presetSw()}}
-function chatLine(n,t,mine){const d=document.createElement('div');if(mine)d.className='me';const b=document.createElement('b');b.textContent=n+': ';d.append(b,document.createTextNode(t));const L=$('chatLog');L.append(d);while(L.children.length>7)L.firstChild.remove();setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),900)},14000);if(mine){if(me.userData._bub)me.remove(me.userData._bub);const s=bubble(t.slice(0,60));s.position.y=2.1;me.add(s);me.userData._bub=s;setTimeout(()=>{if(me.userData._bub===s){me.remove(s);me.userData._bub=null}},5000)}}
-function startMultiplayer(){if(NETAPI)return;NETAPI=startNet({scene,animH,bubble,vehicle:t=>vehicle(t),makeAvatar:l=>{const o=Object.assign({skin:0xc68642,top:0x2b2b2b,bottom:0x1b1b1b},l);return o.female?human(o):hero(o)},
- local:()=>({x:P.x,y:P.y,z:P.z,yaw:P.ride?P.ride.g.rotation.y:P.yaw,speed:P.ride?Math.abs(P.ride.speed):(me.userData.spd||0),state:SIT?'sit':ONTRAIN?'metro':P.ride?'ride:'+P.ride.type:'',name:ST.name,look:lookPayload(),role:ST.role||'Explorer',uid:AUTH.id||'',startup:(SOC.S.me&&SOC.S.me.startup)||''}),onMeet:(n,x,z)=>{setGPS(x,z);toast('📍 '+n+' wants to meet you: follow the purple light')},
- greet:()=>{if(!SIT&&!P.ride)doWave()},onChat:chatLine,onNobody:m=>toast('No one within '+m+' m can hear you'),onStatus:t=>{$('online').textContent=(t.startsWith('Online')?'🟢 ':'⚪ ')+t}})}
-function openChat(){const i=$('chatIn');i.hidden=false;i.focus()}
-$('chatBtn').onclick=openChat;
-$('chatIn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){if(NETAPI)NETAPI.chat(e.target.value);else chatLine(ST.name,e.target.value,true);e.target.value='';e.target.hidden=true;e.target.blur()}if(e.key==='Escape'){e.target.value='';e.target.hidden=true;e.target.blur()}});
-// ---- VRoid characters: models/characters.json lists outfits per gender (each outfit = one .vrm export)
-const VQ=new URLSearchParams(location.search).get('vrm');
-function outfitList(){return(CHARS&&CHARS[ST.look.female?'female':'male'])||[]}
-function vrmUrl(f){return /^(https?:)?\/\//.test(f)?f:'models/'+f}
-const VC_ROWS=[['hair','Hair',[0x1a1a1a,0x3b2314,0x8a5a2b,0xc9a26b,0x7a1f2b,0x2d3e8f,0xd77fa1]],['top','Top',[0xf2f2f2,0xe84393,0x2c5fa8,0xf2c94c,0x1e7b4a,0xc0392b,0x2b2b2b,0x8fb8c9]],['bottom','Shorts / pants',[0x1b1b1b,0x22324a,0x4a6fa5,0xd9c7a8,0x7b2d8b,0xc0392b,0xf2f2f2]],['shoes','Shoes',[0xf2f2f2,0x1b1b1b,0xc0392b,0x2c5fa8,0xf2c94c]],['skin','Skin tone',[0xf4ddc8,0xe2b897,0xc99470,0xa87250,0x8a5a3c]],['eyes','Eyes',[0x3b2314,0x1a1a1a,0x2d6a8f,0x2e7d32,0x8a5a2b]]];
-function curFile(){const L=outfitList();return L.length?L[Math.min(ST.look.outfit|0,L.length-1)].file:''}
-function vcGet(){ST.look.vc=ST.look.vc||{};return ST.look.vc[curFile()]||(ST.look.vc[curFile()]={})}
-function applyColors(){if(!PV)return;const c=vcGet();for(const[k]of VC_ROWS)recolor(PV,k,c[k]??null)}
-function colorRows(){const el=$('vcRows'),vl=$('vLook'),isFace=k=>k==='hair'||k==='eyes'||k==='skin';if(!PV||!outfitList().length){el.style.display=vl.style.display='none';el.innerHTML=vl.innerHTML='';return}const have=vrmSlots(PV),c=vcGet();el.style.display=vl.style.display='';
- const rows=want=>VC_ROWS.filter(([k])=>have.includes(k)&&isFace(k)===want).map(([k,n,list])=>`<label>${n}</label><div class="sw" data-slot="${k}"><button aria-label="original colour" data-c="" aria-pressed="${c[k]==null}" style="background:#2a2a2a;color:#fff;font-size:13px">↺</button>${list.map(v=>`<button aria-label="colour" data-c="${v}" aria-pressed="${c[k]===v}" style="background:#${v.toString(16).padStart(6,'0')}"></button>`).join('')}</div>`).join('');el.innerHTML=rows(false);vl.innerHTML=rows(true);
- el.onclick=vl.onclick=e=>{const b=e.target.closest('button'),row=e.target.closest('[data-slot]');if(!b||!row)return;const k=row.dataset.slot,v=b.dataset.c===''?null:+b.dataset.c;const cc=vcGet();if(v==null)delete cc[k];else cc[k]=v;recolor(PV,k,v);save();colorRows()}}
-let CHAR_WAIT=true; // until we know whether a VRoid character is coming, keep the old model + rows hidden
-function setCreatorMode(){const v=CHAR_WAIT||outfitList().length>0;for(const id of['sS','sT','sB']){$(id).style.display=v?'none':'';$(id).previousElementSibling.style.display=v?'none':''}$('lO').style.display=$('sO').style.display=v?'':'none';heroRows()}
-function outfitSw(){const L=outfitList();setCreatorMode();if(!L.length)return;$('sO').innerHTML=L.map((o,i)=>`<button style="width:auto;padding:0 14px;border-radius:12px;background:#2a2a2a;color:#fff" data-i="${i}" aria-pressed="${(ST.look.outfit|0)===i}">${o.name}</button>`).join('');$('sO').onclick=e=>{const b=e.target.closest('button');if(!b)return;ST.look.outfit=+b.dataset.i;outfitSw();applyOutfit()}}
-// ---- character loading overlay (spinner + percentage while a VRoid model and its animations download)
-let CL_URL=null,CL_T=0;
-function charLoading(url){CL_URL=url;const el=$('charLoad');if(!el)return;clearInterval(CL_T);if(!url){el.hidden=true;return}el.hidden=false;const tick=()=>{const p=vrmProgress(url);$('clPct').textContent=p?Math.round(p.p*100)+'%':'0%';$('clBar').style.width=(p?p.p*100:3)+'%';$('clText').textContent=p&&p.stage==='anims'?'Getting her moves ready…':'Loading character…';if(p&&p.stage==='done'){clearInterval(CL_T)}};tick();CL_T=setInterval(tick,150)}
-function charReady(){CHAR_WAIT=false;charLoading(null);$('lO').textContent='Outfit';if(!P.ride)me.visible=true;setCreatorMode()}
-async function applyOutfit(){const L=outfitList(),tok=++outTok;if(!L.length){if(PV){PV=null;rebuildMe()}charReady();colorRows();return}
- const o=L[Math.min(ST.look.outfit|0,L.length-1)];let v;
- charLoading(vrmUrl(o.file));if(creating){me.visible=false;CHAR_WAIT=true;setCreatorMode();$('lO').textContent='Outfit (loading…)';$('vcRows').style.display='none'}else toast('Loading character…');
- try{v=await loadVRM(vrmUrl(o.file))}catch(e){console.warn('VRM load failed',e);if(tok===outTok){PV=null;rebuildMe();charReady();colorRows();toast('Could not load the character file')}return}
- if(tok!==outTok)return;PV=v;rebuildMe();charReady();applyColors();colorRows();if(!creating)toast(o.name+' equipped!')}
-async function initChars(){me.visible=false;setCreatorMode();try{if(VQ)CHARS={male:[{name:'Test',file:VQ}],female:[{name:'Test',file:VQ}]};else{const r=await fetch('models/characters.json',{cache:'no-cache'});if(!r.ok){charReady();return}CHARS=await r.json()}outfitSw();await applyOutfit()}catch(e){console.warn('characters.json',e);charReady()}}
-function rebuildMe(){const v=me.visible,pos=me.position.clone(),ry=me.rotation.y;scene.remove(me);me=makeMe();me.position.copy(pos);me.rotation.y=ry;me.visible=v;scene.add(me);save()}
-if(!ST.role)ST.role='Explorer';roleSw();genderSw();swatches('sS',SKINSW,'skin');swatches('sT',TOPSW,'top');swatches('sB',BOTSW,'bottom');presetSw();$('sMoney').textContent='₹'+ST.money.toLocaleString('en-IN');$('nm').value=ST.name;
+let creating=true;let NETAPI=null;let CL_URL=null;const _makeCreator=makeCreator({$,BOTS,BOT_STYLES,HAIR_STYLES,P,PI,SKINS,ST,TOPS,TOP_STYLES,animH,bubble,doWave,hero,human,loadVRM,makeMe,recolor,roleSw,save,scene,setGPS,startNet,toast,vehicle,vrmProgress,vrmSlots,get AUTH(){return AUTH},set AUTH(v){AUTH=v},get CHARS(){return CHARS},set CHARS(v){CHARS=v},get CL_URL(){return CL_URL},set CL_URL(v){CL_URL=v},get NETAPI(){return NETAPI},set NETAPI(v){NETAPI=v},get ONTRAIN(){return ONTRAIN},set ONTRAIN(v){ONTRAIN=v},get PV(){return PV},set PV(v){PV=v},get SIT(){return SIT},set SIT(v){SIT=v},get SOC(){return SOC},get creating(){return creating},set creating(v){creating=v},get me(){return me},set me(v){me=v},get outTok(){return outTok},set outTok(v){outTok=v}});const {TOPV,CAMV,CLOSE,CYAW,CWALK,CPHONE,CV}=_makeCreator;function sTab(...a){return _makeCreator.sTab(...a)}function setZoom(...a){return _makeCreator.setZoom(...a)}function lookPayload(...a){return _makeCreator.lookPayload(...a)}function heroRows(...a){return _makeCreator.heroRows(...a)}function startMultiplayer(...a){return _makeCreator.startMultiplayer(...a)}function openChat(...a){return _makeCreator.openChat(...a)}function outfitList(...a){return _makeCreator.outfitList(...a)}function outfitSw(...a){return _makeCreator.outfitSw(...a)}function applyOutfit(...a){return _makeCreator.applyOutfit(...a)}function initChars(...a){return _makeCreator.initChars(...a)}function rebuildMe(...a){return _makeCreator.rebuildMe(...a)}
 // ---- networking layer (profiles, roles, connections, chat) — see social.js
 function setGPS(x,z){WP={x,z};gpsMarker.position.set(x,0,z);gpsMarker.visible=true}
 function goCafe(){setGPS(CAFE.door.x+3,CAFE.door.z);togglePhone(false);toast('☕ GPS set to the Startup Café: follow the purple light')}
@@ -945,97 +525,9 @@ SOC.billboard().then(l=>{if(l.length){BILL_LIST=l;for(const b of BILLS)drawBill(
 setInterval(()=>{if(BILL_LIST.length<2)return;BILL_I++;BILLS.forEach((b,i)=>drawBill(b,BILL_LIST[(BILL_I+i)%BILL_LIST.length]))},9000);
 // ---- numbered billboard spots: 01-10 big boards, 11-50 on street lamps
 // big boards keep clear of walls and of road surfaces
-const BOARDS=buildBoards({scene,addColl,blocked:(x,z,r)=>blocked(x,z,r)||DMAP.lines.some(L=>L.pts.some(p=>Math.hypot(p[0]-x,p[1]-z)<L.w/2+3.5))});let SPOT_PICK='';
-// ---- billboard viewer: tap or click a board to see it large and open the startup's website
-const safeUrl=u=>{try{const v=new URL(u);return v.protocol==='https:'?v.href:''}catch(e){return''}};
-function showBoard({image,title,tagline,url,code}){const link=safeUrl(url||'');
- $('bvHead').textContent=code?'Billboard spot '+code:'Billboard';const cv=$('bvImg');cv.hidden=!image;if(image)image(cv);
- $('bvTitle').textContent=title||'This spot is free';$('bvTag').textContent=tagline||(title?'':'Put your startup here.');
- const a=$('bvLink');a.hidden=!link;if(link){a.href=link;a.textContent='Visit '+new URL(link).hostname.replace(/^www\./,'')+' ↗'}else a.removeAttribute('href');
- const take=$('bvTake');take.hidden=!!title||!code;take.onclick=()=>{closeBoard();openSpot(code)};
- for(const k in K)K[k]=false;$('boardView').hidden=false;$('bvClose').focus()}
-function closeBoard(){$('boardView').hidden=true;$('bvLink').removeAttribute('href')}
-$('bvClose').onclick=closeBoard;$('boardView').onclick=e=>{if(e.target.id==='boardView')closeBoard()};
-addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('boardView').hidden){e.stopImmediatePropagation();e.preventDefault();closeBoard()}},true);
-function viewSpot(spot){const t=BOARDS.taken(spot.code);showBoard({code:spot.code,image:cv=>BOARDS.snapshot(spot,cv),title:t&&t.startup,tagline:t&&t.tagline,url:t&&t.url})}
-// a tap is a press and release in the same place; a drag turns the camera instead
-{let down=null;const cv=$('c'),ray=new T.Raycaster(),ndc=new T.Vector2();
- cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,id:e.pointerId,t:performance.now()}});
- const at=e=>ndc.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);
- const hitAt=e=>{at(e);const spot=BOARDS.pick(camera,ndc);ray.setFromCamera(ndc,camera);ray.far=55;const old=ray.intersectObjects(BILLS.map(b=>b.face),false)[0];
-  if(old&&(!spot||old.distance<spot.distance))return{old:BILLS.find(b=>b.face===old.object)};return spot&&spot.spot?{spot:spot.spot}:null};
- cv.addEventListener('pointerup',e=>{const d=down;down=null;if(!d||d.id!==e.pointerId||!started||creating||phoneOn||MENU||mapOn||photo||Math.hypot(e.clientX-d.x,e.clientY-d.y)>8||performance.now()-d.t>500)return;
-  const h=hitAt(e);if(!h)return;if(h.spot)viewSpot(h.spot);else{const en=h.old.entry||{};showBoard({image:to=>{to.width=1024;to.height=512;to.getContext('2d').drawImage(h.old.cv,0,0)},title:en.title,tagline:en.tagline,url:en.url})}});
- let hoverT=0;cv.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||e.buttons||performance.now()-hoverT<120||!started||creating)return;hoverT=performance.now();cv.style.cursor=hitAt(e)?'pointer':''})}
-const loadSpots=()=>{if(!document.hidden)SOC.spots().then(r=>BOARDS.update(r)).catch(()=>{})};loadSpots();setInterval(loadSpots,60000);
-function openSpot(code){SPOT_PICK=code;APP='bill';togglePhone(true)}
-// the phone's Billboard screen: take a spot, see your request, and browse who is where
-async function spotApp(a){a.innerHTML='<p class="empty">Loading…</p>';const[rows,mine]=await Promise.all([SOC.spots(),SOC.myRequests()]);if(APP!=='bill'||!phoneOn)return;BOARDS.update(rows);
- const byCode=new Map(rows.map(r=>[r.spot,r])),pending=mine.find(m=>m.status==='pending'),pick=SPOT_PICK||(SPOTS.find(s=>!byCode.has(s.code))||SPOTS[0]).code;
- const label=s=>`${s.code} · ${s.type==='big'?'Big':'Lamp'} · ${s.area}${byCode.has(s.code)?' (taken)':''}`;
- a.innerHTML=`<p class="note">📢 Put your startup on a numbered billboard. The admin checks every request and decides where it goes.</p>
- ${mine.map(m=>`<div class="pcard"><div class="pav">${esc(m.spot)}</div><div class="pinfo"><b>${esc(m.startup)}</b><div class="pst spstat">${m.status==='pending'?'⏳ Waiting for approval':m.status==='approved'?'✅ Live on spot '+esc(m.spot):'✖ Not approved'}</div></div>${m.status==='pending'?`<button class="ghost" data-cancel="${Number(m.id)}">Cancel</button>`:''}</div>`).join('')}
- ${pending?'':`<form id="spotForm" class="spotform"><label>Spot number<select name="spot">${SPOTS.map(s=>`<option value="${s.code}" ${s.code===pick?'selected':''} ${byCode.has(s.code)?'disabled':''}>${esc(label(s))}</option>`).join('')}</select></label>
- <label>Startup name<input name="startup" maxlength="28" required></label><label>Tagline (optional)<input name="tagline" maxlength="60"></label><label>Website (optional)<input name="url" maxlength="120" placeholder="https://"></label>
- <button type="submit">Take this spot</button><p id="spotMsg" class="note" role="status"></p></form>`}
- <button class="ghost" data-spotgps>Show the way to spot ${esc(pick)}</button>
- <p class="note">${rows.length} of ${SPOTS.length} spots taken</p>${rows.slice().sort((x,y)=>x.spot-y.spot).map(r=>`<div class="pcard"><div class="pav">${esc(r.spot)}</div><div class="pinfo"><b>${esc(r.startup)}</b><div class="ppitch">${esc(r.tagline||'')}</div>${safeUrl(r.url)?`<a class="pst" href="${esc(safeUrl(r.url))}" target="_blank" rel="noopener noreferrer">${esc(r.url.replace(/^https:\/\//i,''))} ↗</a>`:''}</div></div>`).join('')}`;
- const f=a.querySelector('#spotForm');
- if(f){for(const el of f.elements){el.addEventListener('keydown',e=>e.stopPropagation());el.addEventListener('keyup',e=>e.stopPropagation())}
-  f.spot.onchange=()=>{SPOT_PICK=f.spot.value;a.querySelector('[data-spotgps]').textContent='Show the way to spot '+SPOT_PICK};
-  f.onsubmit=async e=>{e.preventDefault();const btn=f.querySelector('button');btn.disabled=true;try{await SOC.requestSpot({spot:f.spot.value,startup:f.startup.value,tagline:f.tagline.value,url:f.url.value});toast('Request sent for spot '+f.spot.value);spotApp(a)}catch(err){a.querySelector('#spotMsg').textContent=err.message;btn.disabled=false}}}
- a.querySelector('[data-spotgps]').onclick=()=>{const s=spotByCode(SPOT_PICK||pick);setGPS(s.x,s.z);togglePhone(false);toast('Follow the purple light to spot '+s.code)};
- for(const b of a.querySelectorAll('[data-cancel]'))b.onclick=async()=>{try{await SOC.cancelRequest(+b.dataset.cancel);spotApp(a)}catch(err){toast(err.message)}}}
+const _makeOverlays=makeOverlays({$,BILLS,DMAP,K,SOC,SPOTS,T,addColl,blocked,buildBoards,camera,doWave,esc,roleInfo,scene,setGPS,setMenu,spotByCode,store,toast,togglePhone,get APP(){return APP},set APP(v){APP=v},get AUTH(){return AUTH},set AUTH(v){AUTH=v},get MENU(){return MENU},set MENU(v){MENU=v},get NETAPI(){return NETAPI},set NETAPI(v){NETAPI=v},get creating(){return creating},set creating(v){creating=v},get mapOn(){return mapOn},set mapOn(v){mapOn=v},get phoneOn(){return phoneOn},set phoneOn(v){phoneOn=v},get photo(){return photo},set photo(v){photo=v},get started(){return started},set started(v){started=v}});const {BOARDS,loadSpots}=_makeOverlays;function showTour(...a){return _makeOverlays.showTour(...a)}function viewSpot(...a){return _makeOverlays.viewSpot(...a)}function spotApp(...a){return _makeOverlays.spotApp(...a)}
 // ---- login: email + password (log in / sign up). An account is needed to enter the city.
-let AUTH={kind:'none'},LG_MODE='in';
-function showAuth(u,ev){const wasIn=AUTH.kind==='email'||AUTH.kind==='google';AUTH=u&&u.kind!=='guest'?u:{kind:'none'}; // old guest sessions count as logged out
- SOC.setUser(AUTH);showContinue();const k=AUTH.kind,inn=k==='google'||k==='email';
- $('lgState').textContent=k==='google'?'✅ Logged in: '+(AUTH.email||''):k==='email'?'✅ Logged in: '+AUTH.email:k==='offline'?'Offline mode (net-config.js is empty)':'Log in or create an account to enter the city';
- $('lgForm').hidden=inn||k==='offline';$('lgOut').hidden=k==='none'||k==='offline';
- if(inn&&AUTH.name&&(!$('nm').value||$('nm').value==='Satish'))$('nm').value=AUTH.name.split(' ')[0].slice(0,16);
- const inAcc=k==='email'||k==='google';setTimeout(checkAdmin,0); // after the login has been stored
- $('sAcc').textContent=inAcc?'✅ Account':'👤 Log in';if(inAcc&&!wasIn&&$('start').dataset.tab==='account')sTab(innerWidth<=760?'me':'look');
- if(ev==='PASSWORD_RECOVERY'){lgMode('new');sTab('account')}}
-const lgErr=e=>{$('lgErr').textContent=e?String(e.message||e):'';if(e)$('lgMsg').textContent=''},lgMsg=t=>{$('lgMsg').textContent=t||'';if(t)$('lgErr').textContent=''};
-function lgMode(m){LG_MODE=m;lgErr('');document.querySelectorAll('.lgtabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.m===m));
- $('lgSubmit').textContent=m==='up'?'Create account':m==='new'?'Save new password':'Log in';$('lgPass').autocomplete=m==='in'?'current-password':'new-password';
- $('lgEmail').hidden=m==='new';$('lgForgot').hidden=m!=='in';$('lgPass').placeholder=m==='new'?'New password (min 6 characters)':'Password (min 6 characters)';if(m==='new'){$('lgForm').hidden=false;lgMsg('Choose a new password')}}
-document.querySelector('.lgtabs').onclick=e=>{const b=e.target.closest('button');if(b)lgMode(b.dataset.m)};
-$('lgForm').onsubmit=async e=>{e.preventDefault();lgErr('');const btn=$('lgSubmit'),em=$('lgEmail').value,pw=$('lgPass').value;btn.disabled=true;
- try{if(LG_MODE==='in')showAuth(await loginEmail(em,pw));
-  else if(LG_MODE==='up'){const r=await signUpEmail(em,pw,($('nm').value||'').trim());if(r.user)showAuth(r.user);else{lgMode('in');lgMsg('Account created! Check '+em.trim()+' for a confirmation link, then log in.')}}
-  else{await setNewPassword(pw);lgMode('in');lgMsg('Password updated. You are logged in.')}
-  $('lgPass').value=''}catch(err){lgErr(err)}btn.disabled=false};
-$('lgForgot').onclick=async()=>{lgErr('');try{await resetPassword($('lgEmail').value);lgMsg('Password reset link sent to '+$('lgEmail').value.trim())}catch(err){lgErr(err)}};
-$('lgOut').onclick=async()=>{lgErr('');lgMsg('');await logout();showAuth({kind:'none'})};
-onAuth(showAuth);currentUser().then(u=>showAuth(u)).catch(()=>showAuth({kind:'none'}));
-// ---- spawn: every time you enter the city you start at a random safe spot (not when you come back from the character screen)
-let SPAWNED=false;const AT_PARAM=new URLSearchParams(location.search).has('at');
-const SPAWNS=[{n:'Startup Café',x:-186,z:-74},{n:'Startup Café',x:-186,z:-87},{n:'City Center plaza',x:-12,z:-318},{n:'City Center plaza',x:-62,z:-372},{n:'Marine Drive',x:10,z:158},{n:'Marine Drive',x:70,z:158},{n:'Bandra Bay',x:-270,z:164},{n:'City Junction',x:-133,z:-6},{n:'Sports Ground',x:-20,z:-12},{n:'Market',x:96,z:34},{n:'Raju\'s Tea Stall',x:6,z:40},{n:'IT Park',x:182,z:-344},{n:'Residential Area',x:-300,z:-60}];
-function randomSpawn(){const opts=SPAWNS.slice();for(let i=0;i<4;i++){const s=sidewalkSpot(0);opts.push({n:'the old city',x:s.x,z:s.z})}
- for(let k=0;k<20;k++){const s=opts[Math.floor(Math.random()*opts.length)],x=s.x+(Math.random()-.5)*4,z=s.z+(Math.random()-.5)*4;if(blocked(x,z,.6))continue;
-  P.x=x;P.z=z;P.y=groundY(x,z);P.vy=0;P.yaw=Math.random()*PI*2;camYaw=P.yaw+PI;me.position.set(P.x,P.y,P.z);me.rotation.y=P.yaw;return s.n}return null}
-function showContinue(){const b=$('cont');if(!b)return;const ok=AUTH&&(AUTH.kind==='google'||AUTH.kind==='email')&&!SPAWNED;b.hidden=!ok;if(ok)$('contName').textContent=ST.name||'Player'}
-$('cont').onclick=()=>$('go').click();
-// ---- admin: the same login as everyone; if the account is an admin, an extra button opens the panel inside the game
-let ADMIN_ID=null;
-function checkAdmin(){const id=AUTH.kind==='email'||AUTH.kind==='google'?AUTH.id:'';if(id===ADMIN_ID)return;ADMIN_ID=id;
- const show=v=>{$('sAdmin').hidden=$('pmAdmin').hidden=!v;if(!v)closeAdmin()};show(false);
- if(id)isAdmin().then(ok=>{if(ADMIN_ID===id)show(ok)}).catch(()=>{ADMIN_ID=null})}
-function openAdmin(){if(MENU)setMenu(false);for(const k in K)K[k]=false;$('adminFrame').src='admin.html';$('adminView').hidden=false}
-function closeAdmin(){if($('adminView').hidden)return;$('adminView').hidden=true;$('adminFrame').removeAttribute('src');if(typeof loadSpots==='function')loadSpots()}
-$('sAdmin').onclick=$('pmAdmin').onclick=openAdmin;$('adminClose').onclick=closeAdmin;
-// ---- only accounts the admin has approved may enter
-let APPROVED='',CHECKING=false; // holds the account id that has been approved
-const WAIT_TEXT={pending:'Your account is waiting for the admin to approve it. Press Start again after approval.',blocked:'This account is not allowed to play.',login:'Log in with email to enter the city',error:'Could not check your approval. Check your internet and try again.'};
-async function askApproval(){if(CHECKING)return;CHECKING=true;lgErr('');lgMsg('Checking your account…');
- const s=await playerStatus($('nm').value).catch(()=>'error');CHECKING=false;lgMsg('');
- if(s==='approved'){APPROVED=AUTH.id;$('go').click()}else{sTab('account');lgErr(WAIT_TEXT[s]||WAIT_TEXT.error)}}
-// if the admin blocks someone who is already playing, send them back to the start screen
-setInterval(async()=>{if(!APPROVED||!started||creating||document.hidden)return;const s=await playerStatus(ST.name).catch(()=>'error');
- if(s==='blocked'||s==='pending'){APPROVED='';backToCreator();sTab('account');lgErr(WAIT_TEXT[s])}},60000);
-$('go').onclick=()=>{if(AUTH.kind==='none'){sTab('account');lgErr('Log in or sign up to enter the city');return}
- if(AUTH.kind!=='offline'&&APPROVED!==AUTH.id){askApproval();return}ST.name=($('nm').value||'Satish').trim().slice(0,16);if(!SPAWNED){SPAWNED=true;if(!AT_PARAM){const n=randomSpawn();if(n)setTimeout(()=>toast('📍 You arrived at '+n),2600)}}$('cont').hidden=true;if(SOC.S.uid&&(!SOC.S.me||SOC.S.me.name!==ST.name||SOC.S.me.role!==ST.role))SOC.quickRole(ST.role||'Explorer',ST.name,lookPayload());if(NETAPI)NETAPI.retrack();setTimeout(startMultiplayer,300);creating=false;started=true;document.body.classList.remove('creating');$('start').style.display='none';audioInit();save();toast('Welcome '+ST.name+'! Open the phone (P) to pick a job')};
+let AUTH={kind:'none'};const _makeLogin=makeLogin({$,K,P,PI,SOC,ST,audioInit,backToCreator,blocked,currentUser,groundY,isAdmin,loadSpots,loginEmail,logout,lookPayload,onAuth,playerStatus,resetPassword,sTab,save,setMenu,setNewPassword,showTour,signUpEmail,startMultiplayer,store,toast,get AUTH(){return AUTH},set AUTH(v){AUTH=v},get MENU(){return MENU},set MENU(v){MENU=v},get NETAPI(){return NETAPI},set NETAPI(v){NETAPI=v},get camYaw(){return camYaw},set camYaw(v){camYaw=v},get creating(){return creating},set creating(v){creating=v},get me(){return me},set me(v){me=v},get started(){return started},set started(v){started=v}});const {AT_PARAM}=_makeLogin;function showAuth(...a){return _makeLogin.showAuth(...a)}
 // ================= quality =================
 function applyQ(){const q=QS[Q];renderer.setPixelRatio(q.pr);composer.setPixelRatio(q.pr);renderer.shadowMap.enabled=q.shadow;sun.castShadow=q.shadow;sun.shadow.mapSize.set(q.smap,q.smap);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}bloom.enabled=q.bloom;gtao.enabled=Q==='high';camera.far=q.far;camera.updateProjectionMatrix();skyDome.scale.setScalar(q.far*.42/2000);resize();
  PEDS.forEach((p,i)=>{p.active=p.static||i<q.npc;p.g.visible=p.active});scene.traverse(o=>{if(o.material)[].concat(o.material).forEach(m=>m.needsUpdate=true)})}
@@ -1068,6 +560,9 @@ function mergeTick(){if(mergeIn<0)return;
  const built=[];for(const e of sets.values()){const geo=e.list.length>1?mergeGeometries(e.list,false):e.list[0];if(!geo)return mergeSnap=null; // mismatched shapes: keep the originals
   const m=new T.Mesh(geo,e.m);m.castShadow=e.cast;m.receiveShadow=e.recv;m.matrixAutoUpdate=false;built.push(m)}
  for(const o of done)scene.remove(o);for(const m of built)scene.add(m);mergeSnap=null}
+const STAGE_RING=new T.Mesh(new T.RingGeometry(.62,.7,64).rotateX(-PI/2),new T.MeshBasicMaterial({color:0x2dd4bf,transparent:true,opacity:.9,fog:false,depthWrite:false}));
+STAGE_RING.renderOrder=2;STAGE_RING.userData.noCull=true;scene.add(STAGE_RING);
+const STAGE_GLOW=new T.Mesh(new T.CircleGeometry(.7,48).rotateX(-PI/2),new T.MeshBasicMaterial({color:0x2dd4bf,transparent:true,opacity:.14,fog:false,depthWrite:false}));STAGE_GLOW.renderOrder=1;scene.add(STAGE_GLOW);
 // ================= main loop =================
 const clock=new T.Clock();let hintT=0,lightT=0,el=0;const tgtV=new T.Vector3(),camPos=new T.Vector3(),sunDir=new T.Vector3();
 function sigState(){const c=el%28;return{x:c<12?'g':c<14?'y':'r',z:c>=14&&c<26?'g':c>=26?'y':'r'}}
@@ -1164,6 +659,7 @@ function step(){const dt=Math.min(.05,clock.getDelta());el+=dt;if(!document.hidd
  if(WP&&Math.hypot(WP.x-pp.x,WP.z-pp.z)<9){WP=null;gpsMarker.visible=false;toast('GPS: you have arrived!');ding()}
  if(mapOn)drawBigMap();
  if(started&&!creating)updateJob(dt);
+ STAGE_RING.visible=STAGE_GLOW.visible=creating&&!CLOSE;if(STAGE_RING.visible){STAGE_RING.position.set(me.position.x,me.position.y+.03,me.position.z);STAGE_GLOW.position.set(me.position.x,me.position.y+.02,me.position.z)}
  // ---- camera
  if(!creating&&camera.view&&camera.view.enabled)camera.clearViewOffset();
  if(CAMV){camera.position.set(CAMV[0],CAMV[1],CAMV[2]);camera.lookAt(CAMV[3],CAMV[4],CAMV[5]);camera.fov=50;camera.updateProjectionMatrix()}

@@ -54,7 +54,14 @@ if a file is missing the built-in procedural animation is used.
 
 | File | What it does |
 |---|---|
-| `game.js` | Core game: renderer, old city, people, traffic, jobs, phone, map, main loop |
+| `game.js` | Core game: renderer, old city, traffic, jobs, phone, main loop; creates the modules below and shares its state with them |
+| `characters.js` | Character models (male hero, female, passers-by), outfits and animation |
+| `creator.js` | Start screen: character creator, tabs, quick looks, multiplayer start |
+| `bigmap.js` | Street vendors and the full city map (M), far-player markers |
+| `minimap.js` | The round side map |
+| `overlays.js` | Billboard spots, player card, first-time walkthrough, billboard viewer |
+| `login.js` | Login, admin button and player approval |
+| `install.js` | Install-as-app popup and photo mode |
 | `navapur.js` | The island, coastline, curvy roads and all districts |
 | `citykit.js` | Houses, townhouses, brick halls, apartments and landmarks (clock tower, stadium, wheel, market) |
 | `dressing.js` | Street dressing: Hindi signs, awnings, bollards, benches, murals, fort gate, station, clouds |
