@@ -7,7 +7,7 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {startNet} from './net.js?v=16';
+import {startNet} from './net.js?v=17';
 import {buildMetro} from './metro.js?v=2';
 import {makeFacades} from './facades.js?v=2';
 import {makeTrees} from './trees.js?v=1';
@@ -556,6 +556,17 @@ const ROAD_NAMES=['Station Road','M.G. Road','Linking Road','Hill Road'],CROSS_N
 let MAP_EXTRA=null;const mapExtra=()=>MAP_EXTRA||(MAP_EXTRA=[{n:'Vada Pav Center',x:VADA.x,z:VADA.z},{n:'Garage',x:GAR.x,z:GAR.z},{n:'Metro Station',x:-150,z:-14},{n:'City Center Plaza',x:-35,z:-345},{n:'Billboard',x:-40,z:-308},{n:'Dam & Lake',x:275,z:-505},{n:'Runway',x:385,z:112}]);
 const PLAYER_COL='#ff2d78';
 const allPlayers=()=>NETAPI&&NETAPI.positions?NETAPI.positions():[];
+// players too far away to draw get a floating name marker with the distance, so you can find each other
+const BEACONS=[];let beaconT=0;
+function beaconTick(dt){beaconT-=dt;if(beaconT>0)return;beaconT=.5;const far=started&&!creating?allPlayers().filter(q=>!q.near):[];
+ while(BEACONS.length<far.length){const c=document.createElement('canvas');c.width=256;c.height=96;const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;
+  const s=new T.Sprite(new T.SpriteMaterial({map:tex,depthTest:false,fog:false,transparent:true}));s.renderOrder=5;s.userData={c,tex,key:''};
+  const beam=new T.Mesh(new T.CylinderGeometry(.6,.6,26,8,1,true),new T.MeshBasicMaterial({color:0xff2d78,transparent:true,opacity:.5,depthWrite:false,fog:false}));beam.userData.noCull=true;
+  scene.add(s,beam);BEACONS.push({s,beam})}
+ BEACONS.forEach((b,i)=>{const q=far[i];b.s.visible=b.beam.visible=!!q;if(!q)return;const d=Math.round(Math.hypot(q.x-P.x,q.z-P.z)),key=q.name+d;
+  b.beam.position.set(q.x,13,q.z);const k=Math.min(6,Math.max(1.4,d/30));b.s.position.set(q.x,27+k,q.z);b.s.scale.set(6*k,2.25*k,1);
+  if(b.s.userData.key!==key){b.s.userData.key=key;const x=b.s.userData.c.getContext('2d');x.clearRect(0,0,256,96);x.fillStyle='rgba(20,10,20,.82)';x.beginPath();x.roundRect?x.roundRect(4,4,248,88,22):x.rect(4,4,248,88);x.fill();
+   x.fillStyle='#ff2d78';x.fillRect(4,4,10,88);x.textAlign='center';x.fillStyle='#fff';x.font='800 36px "Baloo 2",sans-serif';x.fillText((q.name||'Player').slice(0,12),132,44);x.fillStyle='#ffb3cd';x.font='700 26px "Baloo 2",sans-serif';x.fillText(d+' m away',132,80);b.s.userData.tex.needsUpdate=true}})}
 // clean city-map look for the big map (M): beige land, white roads with casing, building footprints, icons, names
 const MAPK={sea:'#2a7a96',sea2:'#236a84',land:'#ece5d4',beach:'#e6d3a3',caseC:'#b7ae9c',road:'#fffdf7',lane:'#e8c45a',bld:'#d7cdbb',bldT:'#c6baa4',bldS:'#a89c87',old:'#e2d9c6',park:'#a9cf8e',metro:'#7a6bd8'};
 function drawWorldHQ(x,s){
@@ -1165,7 +1176,7 @@ function step(){const dt=Math.min(.05,clock.getDelta());el+=dt;if(!document.hidd
  const TG=marker.visible?marker.position:(WP?gpsMarker.position:null);if(TG&&started){const ang=Math.atan2(TG.x-pp.x,TG.z-pp.z);$('arrow').style.display='block';$('arrow').querySelector('path').setAttribute('fill',marker.visible?'#ffd21f':'#a66bff');$('arrow').style.transform=`rotate(${(camYaw+PI-ang)*180/PI}deg)`;$('dist').textContent=Math.round(Math.hypot(TG.x-pp.x,TG.z-pp.z))+' m'}else{$('arrow').style.display='none';$('dist').textContent=''}
  if(started&&(!MOBILE||(miniT=(miniT+1)%3)===0))drawMini();
  if(PV&&me.userData.vrm===PV)driveVRM(PV,me.userData,dt);
- for(const f of TICK)f(dt,el);if(NETAPI){try{NETAPI.update(dt)}catch(e){console.warn('[net]',e)}}cullTick(dt);mergeTick();
+ for(const f of TICK)f(dt,el);if(NETAPI){try{NETAPI.update(dt)}catch(e){console.warn('[net]',e)}}cullTick(dt);mergeTick();beaconTick(dt);
  if(MOBILE||Q==='low')renderer.render(scene,camera);else composer.render();requestAnimationFrame(step)}
 const BRAKE=new T.MeshStandardMaterial({color:0x880000,emissive:0xff1a1a,emissiveIntensity:4});
 $('chai').onclick=e=>{const b=e.target.closest('button');if(b)serve(+b.dataset.o)};

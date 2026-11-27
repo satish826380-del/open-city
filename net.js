@@ -9,7 +9,7 @@
 // - Remote players are interpolated 100 ms in the past, extrapolated up to 250 ms, then frozen;
 //   shown within 60 m, hidden beyond 70 m, faded in/out over 300 ms, removed after 5 s of silence.
 import * as T from 'three';
-import {NET} from './net-config.js?v=4';
+import {NET} from './net-config.js?v=5';
 import {getSupa} from './auth.js?v=3';
 
 // ?bgtest keeps a hidden tab sending (only for testing two tabs on one PC)
@@ -76,7 +76,7 @@ export function startNet(G) {
     if (r.g) G.scene.remove(r.g);
     const g = G.makeAvatar(r.look || {});
     // own material copies so this avatar can fade without touching everyone else
-    g.traverse(o => { if (o.isMesh || o.isSprite) { o.material = o.material.clone(); o.material.userData.op = o.material.opacity } });
+    g.traverse(o => { if (o.isMesh || o.isSprite) { o.material = o.material.clone(); o.material.userData.op = o.material.opacity; o.material.userData.tr0 = o.material.transparent } });
     r.tag = nameTag(r.name, r.role); r.tag.position.y = r.role ? 2.02 : 1.95; g.add(r.tag);
     if (pos) { g.position.copy(pos); g.rotation.y = ry }
     g.visible = r.alpha > 0; G.scene.add(g); r.g = g; r.key = key; setAlpha(r, r.alpha);
@@ -89,8 +89,8 @@ export function startNet(G) {
   function setAlpha(r, a) {
     r.alpha = a; if (!r.g) return;
     r.g.visible = a > .001;
-    const tr = a < .999;
-    r.g.traverse(o => { if (o.material) { const m = o.material; m.opacity = (m.userData.op ?? 1) * a; if (m.transparent !== tr && !o.isSprite) { m.transparent = tr; m.needsUpdate = true } } });
+    const fading = a < .999;
+    r.g.traverse(o => { if (o.material) { const m = o.material; m.opacity = (m.userData.op ?? 1) * a; const tr = fading || !!m.userData.tr0; if (m.transparent !== tr && !o.isSprite) { m.transparent = tr; m.needsUpdate = true } } });
     if (r.veh) r.veh.g.visible = r.g.visible;
   }
   function forget(id) {
@@ -346,7 +346,7 @@ export function startNet(G) {
   // for the maps: players you can see are exact, everyone else online is where they last reported
   api.positions = () => {
     const out = [], seen = new Set([selfId]);
-    for (const [id, r] of st.remotes) if (r.g && r.alpha > 0) { seen.add(id); out.push({x: r.g.position.x, z: r.g.position.z, name: r.name}) }
+    for (const [id, r] of st.remotes) if (r.g && r.alpha > 0) { seen.add(id); out.push({x: r.g.position.x, z: r.g.position.z, name: r.name, near: true}) }
     for (const [id, m] of st.everyone) if (!seen.has(id)) out.push(m);
     return out;
   };
